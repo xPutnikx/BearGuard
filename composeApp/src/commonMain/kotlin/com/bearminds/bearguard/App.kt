@@ -1,5 +1,6 @@
 package com.bearminds.bearguard
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
@@ -12,6 +13,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -30,15 +32,28 @@ import bearguard.composeapp.generated.resources.nav_traffic
 import com.bearminds.bearguard.home.HomeScreen
 import com.bearminds.bearguard.navigation.NavRoutes
 import com.bearminds.bearguard.rules.ui.AppListScreen
+import com.bearminds.bearguard.settings.SettingsContract.ThemeMode
 import com.bearminds.bearguard.settings.SettingsScreen
+import com.bearminds.bearguard.settings.data.SettingsRepository
 import com.bearminds.bearguard.traffic.TrafficScreen
 import com.bearminds.theme.AppTheme
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 
 @Composable
 fun App() {
-    AppTheme {
+    val settingsRepository: SettingsRepository = koinInject()
+    val themeMode by settingsRepository.observeThemeMode().collectAsState(initial = ThemeMode.SYSTEM)
+    val isSystemDark = isSystemInDarkTheme()
+
+    val isDarkTheme = when (themeMode) {
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+        ThemeMode.SYSTEM -> isSystemDark
+    }
+
+    AppTheme(isDarkTheme = isDarkTheme) {
         val navController = rememberNavController()
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentDestination = navBackStackEntry?.destination

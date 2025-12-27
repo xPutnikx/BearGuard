@@ -10,4 +10,5 @@ fun appModules(): List<Module> = listOf(
     rulesModule,
     homeModule,
     trafficModule,
+    settingsModule,
 )

@@ -45,6 +45,7 @@ A Kotlin Multiplatform firewall app for Android and iOS.
 - [x] AppListViewModelTest (14 tests)
 - [x] TrafficViewModelTest (12 tests)
 - [x] RulesRepositoryImplTest (9 tests)
+- [x] SettingsViewModelTest (15 tests)
 
 ---
 
@@ -235,9 +236,9 @@ Currently placeholder. Implement actual settings.
 
 **Tasks:**
 - [ ] Auto-start on boot
-- [ ] Theme selection (light/dark/system)
-- [ ] Default rule for new apps (allow/block)
-- [ ] Show/hide system apps by default
+- [x] Theme selection (light/dark/system)
+- [x] Default rule for new apps (allow/block)
+- [x] Show/hide system apps by default
 - [ ] Log retention period
 - [ ] Export/Import rules
 - [ ] Clear all rules

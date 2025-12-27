@@ -29,4 +29,16 @@
     <string name="nav_apps">Apps</string>
     <string name="nav_traffic">Traffic</string>
     <string name="nav_settings">Settings</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_behavior">Behavior</string>
+    <string name="settings_default_rule">Default rule for new apps</string>
+    <string name="settings_default_rule_allow">Allow</string>
+    <string name="settings_default_rule_block">Block</string>
+    <string name="settings_show_system_apps">Show system apps by default</string>
 </resources>

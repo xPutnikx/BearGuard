@@ -4,18 +4,28 @@ import com.bearminds.architecture.BaseViewModel
 import com.bearminds.bearguard.rules.data.AppListProvider
 import com.bearminds.bearguard.rules.data.RulesRepository
 import com.bearminds.bearguard.rules.model.Rule
+import com.bearminds.bearguard.settings.data.SettingsRepository
 import kotlinx.coroutines.launch
 import androidx.lifecycle.viewModelScope
 
 class AppListViewModel(
     private val appListProvider: AppListProvider,
     private val rulesRepository: RulesRepository,
+    private val settingsRepository: SettingsRepository,
 ) : BaseViewModel<AppListContract.Event, AppListContract.State>() {
 
     override val initialState = AppListContract.State()
 
     init {
-        onEvent(AppListContract.Event.LoadApps)
+        loadInitialSettings()
+    }
+
+    private fun loadInitialSettings() {
+        viewModelScope.launch {
+            val showSystemApps = settingsRepository.getShowSystemAppsByDefault()
+            setState { copy(showSystemApps = showSystemApps) }
+            onEvent(AppListContract.Event.LoadApps)
+        }
     }
 
     override fun handleEvent(event: AppListContract.Event) {

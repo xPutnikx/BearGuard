@@ -6,6 +6,7 @@ import com.bearminds.bearguard.rules.model.AppInfo
 import com.bearminds.bearguard.rules.model.Rule
 import com.bearminds.bearguard.rules.ui.AppListContract
 import com.bearminds.bearguard.rules.ui.AppListViewModel
+import com.bearminds.bearguard.settings.data.SettingsRepository
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -32,6 +33,7 @@ class AppListViewModelTest {
 
     private lateinit var appListProvider: AppListProvider
     private lateinit var rulesRepository: RulesRepository
+    private lateinit var settingsRepository: SettingsRepository
 
     private val testApps = listOf(
         AppInfo(packageName = "com.example.app1", name = "App One", isSystemApp = false, uid = 1001),
@@ -48,11 +50,13 @@ class AppListViewModelTest {
         Dispatchers.setMain(testDispatcher)
         appListProvider = mock()
         rulesRepository = mock()
+        settingsRepository = mock()
 
         everySuspend { appListProvider.getInstalledApps(false) } returns testApps.filter { !it.isSystemApp }
         everySuspend { appListProvider.getInstalledApps(true) } returns testApps
         everySuspend { rulesRepository.getRules() } returns testRules
         everySuspend { rulesRepository.saveRule(any()) } returns Unit
+        everySuspend { settingsRepository.getShowSystemAppsByDefault() } returns false
     }
 
     @AfterTest
@@ -63,6 +67,7 @@ class AppListViewModelTest {
     private fun createViewModel() = AppListViewModel(
         appListProvider = appListProvider,
         rulesRepository = rulesRepository,
+        settingsRepository = settingsRepository,
     )
 
     // ===================
@@ -231,5 +236,31 @@ class AppListViewModelTest {
 
         assertTrue(viewModel.viewState.value.apps.isEmpty())
         assertFalse(viewModel.viewState.value.isLoading)
+    }
+
+    // ===================
+    // Settings Integration Tests
+    // ===================
+
+    @Test
+    fun `when showSystemAppsByDefault is true then initially shows system apps`() = runTest {
+        everySuspend { settingsRepository.getShowSystemAppsByDefault() } returns true
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.viewState.value.showSystemApps)
+        assertEquals(3, viewModel.viewState.value.apps.size)
+    }
+
+    @Test
+    fun `when showSystemAppsByDefault is false then initially hides system apps`() = runTest {
+        everySuspend { settingsRepository.getShowSystemAppsByDefault() } returns false
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.viewState.value.showSystemApps)
+        assertEquals(2, viewModel.viewState.value.apps.size)
     }
 }
