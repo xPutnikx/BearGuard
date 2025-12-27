@@ -146,9 +146,9 @@ Block when screen is off for battery savings.
 Clean up rules when apps are uninstalled.
 
 **Tasks:**
-- [ ] Register BroadcastReceiver for PACKAGE_REMOVED
-- [ ] Remove rule for uninstalled package
-- [ ] If VPN is running, restart to apply changes
+- [x] Register BroadcastReceiver for PACKAGE_REMOVED - `PackageChangeReceiver.kt`
+- [x] Remove rule for uninstalled package
+- [x] VPN automatically restarts on rule changes (already implemented)
 
 ---
 
@@ -219,9 +219,10 @@ Notify when an app accesses the internet.
 - [ ] Quick block/allow from notification
 
 ### 4.2 New App Detection
-- [ ] Register BroadcastReceiver for PACKAGE_ADDED
-- [ ] Notify when new app installed
-- [ ] Prompt to configure rules
+- [x] Register BroadcastReceiver for PACKAGE_ADDED - `PackageChangeReceiver.kt`
+- [x] Notify when new app installed
+- [x] Apply default rule (allow/block) from settings
+- [x] Prompt to configure rules via notification tap
 
 ### 4.3 Network Speed in Status Bar
 - [ ] Calculate current upload/download speed
