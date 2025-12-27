@@ -41,6 +41,7 @@ import bearguard.composeapp.generated.resources.app_list_blocked
 import bearguard.composeapp.generated.resources.app_list_empty
 import bearguard.composeapp.generated.resources.app_list_internet_access
 import bearguard.composeapp.generated.resources.app_list_mobile
+import bearguard.composeapp.generated.resources.app_list_screen_off
 import bearguard.composeapp.generated.resources.app_list_search_hint
 import bearguard.composeapp.generated.resources.app_list_show_blocked
 import bearguard.composeapp.generated.resources.app_list_show_system_apps
@@ -175,6 +176,14 @@ fun AppListScreen(
                                         )
                                     )
                                 },
+                                onScreenOffToggle = { allowWhenScreenOff ->
+                                    viewModel.onEvent(
+                                        AppListContract.Event.ToggleScreenOffAccess(
+                                            packageName = appWithRule.app.packageName,
+                                            allowWhenScreenOff = allowWhenScreenOff,
+                                        )
+                                    )
+                                },
                             )
                         }
                     }
@@ -190,6 +199,7 @@ private fun AppListItem(
     onToggle: (Boolean) -> Unit,
     onWifiToggle: (Boolean) -> Unit,
     onMobileToggle: (Boolean) -> Unit,
+    onScreenOffToggle: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -252,7 +262,7 @@ private fun AppListItem(
                 )
             }
 
-            // WiFi/Mobile toggles - only shown when app is allowed
+            // WiFi/Mobile/ScreenOff toggles - only shown when app is allowed
             if (appWithRule.isAllowed) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
@@ -271,6 +281,13 @@ private fun AppListItem(
                         selected = appWithRule.allowMobile,
                         onClick = { onMobileToggle(!appWithRule.allowMobile) },
                         label = { Text(stringResource(Res.string.app_list_mobile)) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    // Screen off chip
+                    FilterChip(
+                        selected = appWithRule.allowWhenScreenOff,
+                        onClick = { onScreenOffToggle(!appWithRule.allowWhenScreenOff) },
+                        label = { Text(stringResource(Res.string.app_list_screen_off)) },
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -293,9 +310,11 @@ private fun AppListItemPreview() {
             isAllowed = true,
             allowWifi = true,
             allowMobile = false,
+            allowWhenScreenOff = true,
         ),
         onToggle = {},
         onWifiToggle = {},
         onMobileToggle = {},
+        onScreenOffToggle = {},
     )
 }

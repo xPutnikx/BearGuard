@@ -363,4 +363,87 @@ class AppListViewModelTest {
             )
         }
     }
+
+    // ===================
+    // Screen Off Access Tests
+    // ===================
+
+    @Test
+    fun `when ToggleScreenOffAccess then saves rule and updates state`() = runTest {
+        everySuspend { rulesRepository.getRule("com.example.app1") } returns null
+        everySuspend { rulesRepository.saveRule(any()) } returns Unit
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val app1Before = viewModel.viewState.value.apps.find { it.app.packageName == "com.example.app1" }
+        assertTrue(app1Before?.allowWhenScreenOff == true)
+
+        viewModel.onEvent(AppListContract.Event.ToggleScreenOffAccess("com.example.app1", false))
+        advanceUntilIdle()
+
+        val app1After = viewModel.viewState.value.apps.find { it.app.packageName == "com.example.app1" }
+        assertFalse(app1After?.allowWhenScreenOff == true)
+    }
+
+    @Test
+    fun `when LoadApps then applies screen off settings from rules`() = runTest {
+        val rulesWithScreenOffSettings = listOf(
+            Rule(
+                packageName = "com.example.app1",
+                isAllowed = true,
+                allowWifi = true,
+                allowMobileData = true,
+                allowWhenScreenOff = false
+            ),
+            Rule(
+                packageName = "com.example.app2",
+                isAllowed = true,
+                allowWifi = true,
+                allowMobileData = true,
+                allowWhenScreenOff = true
+            ),
+        )
+        everySuspend { rulesRepository.getRules() } returns rulesWithScreenOffSettings
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val app1 = viewModel.viewState.value.apps.find { it.app.packageName == "com.example.app1" }
+        val app2 = viewModel.viewState.value.apps.find { it.app.packageName == "com.example.app2" }
+
+        assertFalse(app1?.allowWhenScreenOff == true)
+        assertTrue(app2?.allowWhenScreenOff == true)
+    }
+
+    @Test
+    fun `when ToggleScreenOffAccess preserves existing rule settings`() = runTest {
+        val existingRule = Rule(
+            packageName = "com.example.app1",
+            isAllowed = true,
+            allowWifi = false,
+            allowMobileData = false,
+            allowWhenScreenOff = true
+        )
+        everySuspend { rulesRepository.getRule("com.example.app1") } returns existingRule
+        everySuspend { rulesRepository.saveRule(any()) } returns Unit
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(AppListContract.Event.ToggleScreenOffAccess("com.example.app1", false))
+        advanceUntilIdle()
+
+        verifySuspend {
+            rulesRepository.saveRule(
+                Rule(
+                    packageName = "com.example.app1",
+                    isAllowed = true,
+                    allowWifi = false,  // Should preserve existing value
+                    allowMobileData = false,  // Should preserve existing value
+                    allowWhenScreenOff = false
+                )
+            )
+        }
+    }
 }

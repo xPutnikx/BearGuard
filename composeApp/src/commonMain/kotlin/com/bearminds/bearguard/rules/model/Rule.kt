@@ -9,6 +9,7 @@ import kotlinx.serialization.Serializable
  * @param isAllowed Whether network access is allowed for this app
  * @param allowWifi Whether WiFi access is allowed (when isAllowed is true)
  * @param allowMobileData Whether mobile data access is allowed (when isAllowed is true)
+ * @param allowWhenScreenOff Whether access is allowed when screen is off (battery saving)
  */
 @Serializable
 data class Rule(
@@ -16,4 +17,5 @@ data class Rule(
     val isAllowed: Boolean = true,
     val allowWifi: Boolean = true,
     val allowMobileData: Boolean = true,
+    val allowWhenScreenOff: Boolean = true,
 )

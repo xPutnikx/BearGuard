@@ -4,6 +4,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import com.bearminds.bearguard.network.IosNetworkTypeProvider
 import com.bearminds.bearguard.network.NetworkTypeProvider
+import com.bearminds.bearguard.screen.IosScreenStateProvider
+import com.bearminds.bearguard.screen.ScreenStateProvider
 import com.bearminds.bearguard.vpn.IosVpnController
 import com.bearminds.bearguard.vpn.VpnController
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -29,4 +31,5 @@ actual val platformModule = module {
 
     single<VpnController> { IosVpnController() }
     single<NetworkTypeProvider> { IosNetworkTypeProvider() }
+    single<ScreenStateProvider> { IosScreenStateProvider() }
 }

@@ -120,6 +120,19 @@
 | 5 | Connect to WiFi, start VPN | App blocked on WiFi |
 | 6 | Connect to Mobile data | App works on Mobile |
 
+### 2.7 Screen Off Rules (Battery Saving)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Find any app in the list | App shows with main toggle ON |
+| 2 | Verify Screen off chip is visible | Screen off chip appears (selected by default) |
+| 3 | Toggle Screen off chip OFF | Chip shows "blocked" style |
+| 4 | Start VPN protection | VPN active |
+| 5 | Turn off device screen | Screen turns off |
+| 6 | Wait 5 seconds, turn screen back on | App was blocked while screen was off |
+| 7 | Toggle Screen off chip back ON | Chip shows "selected" style |
+| 8 | Turn off screen again | App can still access internet when screen off |
+
 ---
 
 ## 4. Firewall Functionality
@@ -280,6 +293,7 @@
 | 2.4 Search Apps | ☐ | ☐ | |
 | 2.5 System Apps | ☐ | ☐ | |
 | 2.6 WiFi/Mobile Rules | ☐ | ☐ | |
+| 2.7 Screen Off Rules | ☐ | ☐ | |
 | 3.1 Empty Traffic | ☐ | ☐ | |
 | 3.2 View Traffic | ☐ | ☐ | |
 | 3.3 Clear Traffic | ☐ | ☐ | |

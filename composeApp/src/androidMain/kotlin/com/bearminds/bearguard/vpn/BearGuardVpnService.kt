@@ -16,6 +16,7 @@ import com.bearminds.bearguard.network.NetworkTypeProvider
 import com.bearminds.bearguard.rules.data.AppListProvider
 import com.bearminds.bearguard.rules.data.RulesRepository
 import com.bearminds.bearguard.rules.model.Rule
+import com.bearminds.bearguard.screen.ScreenStateProvider
 import com.bearminds.bearguard.settings.data.SettingsRepository
 import com.bearminds.bearguard.traffic.ConnectionOwnerResolver
 import com.bearminds.bearguard.traffic.IpPacketParser
@@ -72,6 +73,7 @@ class BearGuardVpnService : VpnService(), KoinComponent {
     private lateinit var trafficRepository: TrafficRepository
     private lateinit var settingsRepository: SettingsRepository
     private lateinit var appListProvider: AppListProvider
+    private lateinit var screenStateProvider: ScreenStateProvider
     private lateinit var connectionOwnerResolver: ConnectionOwnerResolver
 
     private var vpnInterface: ParcelFileDescriptor? = null
@@ -79,6 +81,7 @@ class BearGuardVpnService : VpnService(), KoinComponent {
     private var currentBlockedPackages: Set<String> = emptySet()
     private var currentNetworkType: NetworkType = NetworkType.WIFI
     private var currentLockdownMode: Boolean = false
+    private var currentScreenOn: Boolean = true
     private var restartJob: Job? = null
 
     override fun onCreate() {
@@ -88,14 +91,16 @@ class BearGuardVpnService : VpnService(), KoinComponent {
         trafficRepository = get()
         settingsRepository = get()
         appListProvider = get()
+        screenStateProvider = get()
         connectionOwnerResolver = ConnectionOwnerResolver(this)
         currentNetworkType = networkTypeProvider.currentNetworkType.value
+        currentScreenOn = screenStateProvider.isScreenOn.value
         createNotificationChannel()
         observeRuleAndNetworkChanges()
     }
 
     /**
-     * Observe rule, network type, and lockdown mode changes.
+     * Observe rule, network type, lockdown mode, and screen state changes.
      * Restarts VPN when blocked apps change.
      * Uses debounce to prevent rapid restarts when multiple changes occur quickly.
      */
@@ -104,22 +109,30 @@ class BearGuardVpnService : VpnService(), KoinComponent {
             combine(
                 rulesRepository.observeRules(),
                 networkTypeProvider.currentNetworkType,
-                settingsRepository.observeLockdownMode()
-            ) { rules, networkType, lockdownMode ->
-                Triple(rules, networkType, lockdownMode)
+                settingsRepository.observeLockdownMode(),
+                screenStateProvider.isScreenOn
+            ) { rules, networkType, lockdownMode, screenOn ->
+                VpnState(rules, networkType, lockdownMode, screenOn)
             }
                 .debounce(RULE_CHANGE_DEBOUNCE_MS)
-                .collect { (rules, networkType, lockdownMode) ->
+                .collect { state ->
                     // Calculate blocked packages based on current state
-                    val newBlockedPackages = calculateBlockedPackages(rules, networkType, lockdownMode)
+                    val newBlockedPackages = calculateBlockedPackages(
+                        state.rules,
+                        state.networkType,
+                        state.lockdownMode,
+                        state.screenOn
+                    )
 
                     // Only restart if VPN is running and state changed
                     if (_isRunning.value &&
                         (newBlockedPackages != currentBlockedPackages ||
-                         networkType != currentNetworkType ||
-                         lockdownMode != currentLockdownMode)) {
-                        currentNetworkType = networkType
-                        currentLockdownMode = lockdownMode
+                         state.networkType != currentNetworkType ||
+                         state.lockdownMode != currentLockdownMode ||
+                         state.screenOn != currentScreenOn)) {
+                        currentNetworkType = state.networkType
+                        currentLockdownMode = state.lockdownMode
+                        currentScreenOn = state.screenOn
                         // Cancel any pending restart before starting a new one
                         restartJob?.cancel()
                         restartJob = serviceScope.launch {
@@ -131,12 +144,23 @@ class BearGuardVpnService : VpnService(), KoinComponent {
     }
 
     /**
-     * Calculate which packages should be blocked based on rules, network type, and lockdown mode.
+     * Data class to hold combined VPN state for observation.
+     */
+    private data class VpnState(
+        val rules: List<Rule>,
+        val networkType: NetworkType,
+        val lockdownMode: Boolean,
+        val screenOn: Boolean
+    )
+
+    /**
+     * Calculate which packages should be blocked based on rules, network type, lockdown mode, and screen state.
      *
      * Normal mode - an app is blocked if:
      * - isAllowed = false (blocked on all networks)
      * - isAllowed = true but allowWifi = false (when on WiFi)
      * - isAllowed = true but allowMobileData = false (when on Mobile)
+     * - isAllowed = true but allowWhenScreenOff = false (when screen is off)
      *
      * Lockdown mode - an app is blocked if:
      * - No explicit rule exists for the app (block by default)
@@ -145,7 +169,8 @@ class BearGuardVpnService : VpnService(), KoinComponent {
     private fun calculateBlockedPackages(
         rules: List<Rule>,
         networkType: NetworkType,
-        lockdownMode: Boolean
+        lockdownMode: Boolean,
+        screenOn: Boolean
     ): Set<String> {
         val rulesMap = rules.associateBy { it.packageName }
 
@@ -166,6 +191,8 @@ class BearGuardVpnService : VpnService(), KoinComponent {
                         // Network-specific blocking
                         networkType == NetworkType.WIFI && !rule.allowWifi -> true
                         networkType == NetworkType.MOBILE && !rule.allowMobileData -> true
+                        // Screen-off blocking
+                        !screenOn && !rule.allowWhenScreenOff -> true
                         else -> false
                     }
                 }
@@ -184,6 +211,8 @@ class BearGuardVpnService : VpnService(), KoinComponent {
                         // Network-specific blocking
                         networkType == NetworkType.WIFI && !rule.allowWifi -> true
                         networkType == NetworkType.MOBILE && !rule.allowMobileData -> true
+                        // Screen-off blocking
+                        !screenOn && !rule.allowWhenScreenOff -> true
                         else -> false
                     }
                 }
@@ -222,15 +251,17 @@ class BearGuardVpnService : VpnService(), KoinComponent {
     private fun startVpn() {
         if (_isRunning.value) return
 
-        // Load rules, network type, and lockdown mode to determine which apps to block
+        // Load rules, network type, lockdown mode, and screen state to determine which apps to block
         val rules = runBlocking { rulesRepository.getRules() }
         val networkType = networkTypeProvider.currentNetworkType.value
         val lockdownMode = runBlocking { settingsRepository.getLockdownMode() }
+        val screenOn = screenStateProvider.isScreenOn.value
         currentNetworkType = networkType
         currentLockdownMode = lockdownMode
+        currentScreenOn = screenOn
 
         // Calculate blocked packages based on current state
-        val blockedPackages = calculateBlockedPackages(rules, networkType, lockdownMode)
+        val blockedPackages = calculateBlockedPackages(rules, networkType, lockdownMode, screenOn)
 
         // Update current state for change detection
         currentBlockedPackages = blockedPackages

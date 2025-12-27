@@ -6,6 +6,8 @@ import com.bearminds.bearguard.network.AndroidNetworkTypeProvider
 import com.bearminds.bearguard.network.NetworkTypeProvider
 import com.bearminds.bearguard.rules.AndroidAppListProvider
 import com.bearminds.bearguard.rules.data.AppListProvider
+import com.bearminds.bearguard.screen.AndroidScreenStateProvider
+import com.bearminds.bearguard.screen.ScreenStateProvider
 import com.bearminds.bearguard.vpn.AndroidVpnController
 import com.bearminds.bearguard.vpn.VpnController
 import org.koin.android.ext.koin.androidContext
@@ -21,4 +23,5 @@ actual val platformModule = module {
     single<AppListProvider> { AndroidAppListProvider(androidContext()) }
     single<VpnController> { AndroidVpnController(androidContext()) }
     single<NetworkTypeProvider> { AndroidNetworkTypeProvider(androidContext()) }
+    single<ScreenStateProvider> { AndroidScreenStateProvider(androidContext()) }
 }

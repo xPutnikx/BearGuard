@@ -12,6 +12,7 @@
     <string name="app_list_blocked">Blocked</string>
     <string name="app_list_wifi">WiFi</string>
     <string name="app_list_mobile">Mobile</string>
+    <string name="app_list_screen_off">Screen off</string>
 
     <!-- VPN Control -->
     <string name="vpn_status_active">Protection Active</string>

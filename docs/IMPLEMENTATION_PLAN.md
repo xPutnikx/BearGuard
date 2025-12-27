@@ -138,9 +138,12 @@ Allow different rules per network type.
 Block when screen is off for battery savings.
 
 **Tasks:**
-- [ ] Add `allowWhenScreenOn` setting per app
-- [ ] Register BroadcastReceiver for ACTION_SCREEN_ON/OFF
-- [ ] Update VPN rules when screen state changes
+- [x] Add `allowWhenScreenOff` setting per app in Rule model
+- [x] Create `ScreenStateProvider` interface (expect/actual for KMP)
+- [x] Implement Android `PowerManager.isInteractive` wrapper with BroadcastReceiver
+- [x] VPN service observes screen state and recalculates blocked packages
+- [x] Update UI to show Screen Off toggle per app
+- [x] Add unit tests for new functionality
 
 ### 1.4 Uninstalled App Cleanup
 Clean up rules when apps are uninstalled.

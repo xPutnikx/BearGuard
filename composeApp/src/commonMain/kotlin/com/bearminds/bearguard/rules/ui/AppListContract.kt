@@ -22,6 +22,7 @@ object AppListContract {
         data class ToggleAppAccess(val packageName: String, val isAllowed: Boolean) : Event
         data class ToggleWifiAccess(val packageName: String, val allowWifi: Boolean) : Event
         data class ToggleMobileAccess(val packageName: String, val allowMobile: Boolean) : Event
+        data class ToggleScreenOffAccess(val packageName: String, val allowWhenScreenOff: Boolean) : Event
         data class ToggleSystemApps(val show: Boolean) : Event
         data class ToggleBlockedOnly(val show: Boolean) : Event
         data class UpdateSearchQuery(val query: String) : Event
@@ -36,4 +37,5 @@ data class AppWithRule(
     val isAllowed: Boolean,
     val allowWifi: Boolean = true,
     val allowMobile: Boolean = true,
+    val allowWhenScreenOff: Boolean = true,
 )
