@@ -163,11 +163,11 @@ Parse actual packets and log connections.
 - Store in database
 
 **Tasks:**
-- [ ] Implement IP header parsing (IPv4/IPv6)
-- [ ] Extract protocol (TCP/UDP), ports, addresses
-- [ ] Map connections to apps via UID
-- [ ] Store connections in database (SQLDelight)
-- [ ] Show real-time traffic in Traffic screen
+- [x] Implement IP header parsing (IPv4/IPv6) - `IpPacketParser.kt`
+- [x] Extract protocol (TCP/UDP), ports, addresses
+- [x] Map connections to apps via UID - `ConnectionOwnerResolver.kt`
+- [x] Store connections in repository (in-memory for now, SQLDelight later)
+- [x] Show real-time traffic in Traffic screen
 
 ### 2.2 Traffic Statistics
 - [ ] Track bytes sent/received per app
@@ -299,8 +299,8 @@ Currently iOS has stub implementations.
 ### Medium Priority
 - [ ] Add ProGuard/R8 rules
 - [ ] Crashlytics/Analytics integration
-- [ ] Consider removing packet processing loop if only app-level blocking is needed
-- [ ] Use `ByteBuffer.allocateDirect()` for packet buffer if keeping packet processing
+- [x] Packet processing loop now used for traffic logging
+- [ ] Use `ByteBuffer.allocateDirect()` for packet buffer for better performance
 
 ### Code Quality
 - [ ] Extract `BlockedPackagesProvider` interface from RulesRepository for VPN service

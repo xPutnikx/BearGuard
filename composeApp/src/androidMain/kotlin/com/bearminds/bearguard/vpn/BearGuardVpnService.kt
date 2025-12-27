@@ -15,8 +15,14 @@ import com.bearminds.bearguard.network.NetworkType
 import com.bearminds.bearguard.network.NetworkTypeProvider
 import com.bearminds.bearguard.rules.data.RulesRepository
 import com.bearminds.bearguard.rules.model.Rule
+import com.bearminds.bearguard.traffic.ConnectionOwnerResolver
+import com.bearminds.bearguard.traffic.IpPacketParser
+import com.bearminds.bearguard.traffic.data.TrafficRepository
+import com.bearminds.bearguard.traffic.model.Connection
+import com.bearminds.bearguard.traffic.model.Protocol
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -42,6 +48,7 @@ import java.nio.ByteBuffer
  * 2. Only apps explicitly allowed (isAllowed=true) are added to the VPN
  * 3. Apps NOT in the VPN tunnel have no internet access (sinkhole effect)
  */
+@OptIn(FlowPreview::class)
 class BearGuardVpnService : VpnService(), KoinComponent {
 
     companion object {
@@ -60,6 +67,8 @@ class BearGuardVpnService : VpnService(), KoinComponent {
 
     private lateinit var rulesRepository: RulesRepository
     private lateinit var networkTypeProvider: NetworkTypeProvider
+    private lateinit var trafficRepository: TrafficRepository
+    private lateinit var connectionOwnerResolver: ConnectionOwnerResolver
 
     private var vpnInterface: ParcelFileDescriptor? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -71,6 +80,8 @@ class BearGuardVpnService : VpnService(), KoinComponent {
         super.onCreate()
         rulesRepository = get()
         networkTypeProvider = get()
+        trafficRepository = get()
+        connectionOwnerResolver = ConnectionOwnerResolver(this)
         currentNetworkType = networkTypeProvider.currentNetworkType.value
         createNotificationChannel()
         observeRuleAndNetworkChanges()
@@ -310,15 +321,53 @@ class BearGuardVpnService : VpnService(), KoinComponent {
      * Log packet information for traffic monitoring.
      */
     private fun logPacket(buffer: ByteBuffer, length: Int) {
-        // TODO: Parse IP header to extract:
-        // - Source IP
-        // - Destination IP
-        // - Protocol (TCP/UDP)
-        // - Source port
-        // - Destination port
-        //
-        // Then map to app using Android's ConnectivityManager.getConnectionOwnerUid()
-        // and log to traffic repository
+        val parsedPacket = IpPacketParser.parse(buffer, length) ?: return
+
+        // Only log TCP and UDP connections
+        if (parsedPacket.protocol != Protocol.TCP && parsedPacket.protocol != Protocol.UDP) {
+            return
+        }
+
+        // Get the protocol number for UID lookup
+        val protocolNum = when (parsedPacket.protocol) {
+            Protocol.TCP -> ConnectionOwnerResolver.IPPROTO_TCP
+            Protocol.UDP -> ConnectionOwnerResolver.IPPROTO_UDP
+            else -> return
+        }
+
+        // Try to find the owner of this connection
+        val uid = connectionOwnerResolver.getConnectionOwnerUid(
+            protocol = protocolNum,
+            localAddress = parsedPacket.sourceIp,
+            localPort = parsedPacket.sourcePort,
+            remoteAddress = parsedPacket.destinationIp,
+            remotePort = parsedPacket.destinationPort
+        )
+
+        val packageName = connectionOwnerResolver.getPackageNameForUid(uid)
+
+        // Check if this connection was from a blocked app
+        val wasBlocked = packageName?.let { it in currentBlockedPackages } ?: false
+
+        // Create connection record and log it
+        val connection = Connection(
+            id = 0, // Will be set by repository
+            packageName = packageName,
+            uid = uid,
+            sourceIp = parsedPacket.sourceIp,
+            sourcePort = parsedPacket.sourcePort,
+            destinationIp = parsedPacket.destinationIp,
+            destinationPort = parsedPacket.destinationPort,
+            protocol = parsedPacket.protocol,
+            bytesOut = parsedPacket.packetLength.toLong(), // Outgoing packet
+            timestamp = System.currentTimeMillis(),
+            wasBlocked = wasBlocked
+        )
+
+        // Log connection asynchronously
+        serviceScope.launch {
+            trafficRepository.logConnection(connection)
+        }
     }
 
     private fun createNotificationChannel() {
