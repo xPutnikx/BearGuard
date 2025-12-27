@@ -127,12 +127,12 @@ Allow different rules per network type.
 
 **Tasks:**
 - [x] ~~Extend Rule model~~ (already has `allowWifi`, `allowMobileData`)
-- [ ] Create `NetworkTypeProvider` interface (expect/actual for KMP)
-- [ ] Implement Android `ConnectivityManager` wrapper
-- [ ] Register for network change broadcasts
-- [ ] Apply appropriate rules based on network type
-- [ ] Update UI to show WiFi/Mobile toggles per app
-- [ ] Restart VPN when network type changes
+- [x] Create `NetworkTypeProvider` interface (expect/actual for KMP)
+- [x] Implement Android `ConnectivityManager` wrapper
+- [x] Register for network change broadcasts
+- [x] Apply appropriate rules based on network type
+- [x] Update UI to show WiFi/Mobile toggles per app
+- [x] Restart VPN when network type changes
 
 ### 1.3 Screen On/Off Rules
 Block when screen is off for battery savings.

@@ -56,6 +56,7 @@ class AppListViewModelTest {
         everySuspend { appListProvider.getInstalledApps(true) } returns testApps
         everySuspend { rulesRepository.getRules() } returns testRules
         everySuspend { rulesRepository.saveRule(any()) } returns Unit
+        everySuspend { rulesRepository.getRule(any()) } returns null
         everySuspend { settingsRepository.getShowSystemAppsByDefault() } returns false
     }
 
@@ -262,5 +263,104 @@ class AppListViewModelTest {
 
         assertFalse(viewModel.viewState.value.showSystemApps)
         assertEquals(2, viewModel.viewState.value.apps.size)
+    }
+
+    // ===================
+    // WiFi/Mobile Access Tests
+    // ===================
+
+    @Test
+    fun `when ToggleWifiAccess then saves rule and updates state`() = runTest {
+        everySuspend { rulesRepository.getRule("com.example.app1") } returns null
+        everySuspend { rulesRepository.saveRule(any()) } returns Unit
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val app1Before = viewModel.viewState.value.apps.find { it.app.packageName == "com.example.app1" }
+        assertTrue(app1Before?.allowWifi == true)
+
+        viewModel.onEvent(AppListContract.Event.ToggleWifiAccess("com.example.app1", false))
+        advanceUntilIdle()
+
+        val app1After = viewModel.viewState.value.apps.find { it.app.packageName == "com.example.app1" }
+        assertFalse(app1After?.allowWifi == true)
+    }
+
+    @Test
+    fun `when ToggleMobileAccess then saves rule and updates state`() = runTest {
+        everySuspend { rulesRepository.getRule("com.example.app1") } returns null
+        everySuspend { rulesRepository.saveRule(any()) } returns Unit
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val app1Before = viewModel.viewState.value.apps.find { it.app.packageName == "com.example.app1" }
+        assertTrue(app1Before?.allowMobile == true)
+
+        viewModel.onEvent(AppListContract.Event.ToggleMobileAccess("com.example.app1", false))
+        advanceUntilIdle()
+
+        val app1After = viewModel.viewState.value.apps.find { it.app.packageName == "com.example.app1" }
+        assertFalse(app1After?.allowMobile == true)
+    }
+
+    @Test
+    fun `when LoadApps then applies WiFi and Mobile settings from rules`() = runTest {
+        val rulesWithNetworkSettings = listOf(
+            Rule(
+                packageName = "com.example.app1",
+                isAllowed = true,
+                allowWifi = false,
+                allowMobileData = true
+            ),
+            Rule(
+                packageName = "com.example.app2",
+                isAllowed = true,
+                allowWifi = true,
+                allowMobileData = false
+            ),
+        )
+        everySuspend { rulesRepository.getRules() } returns rulesWithNetworkSettings
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val app1 = viewModel.viewState.value.apps.find { it.app.packageName == "com.example.app1" }
+        val app2 = viewModel.viewState.value.apps.find { it.app.packageName == "com.example.app2" }
+
+        assertFalse(app1?.allowWifi == true)
+        assertTrue(app1?.allowMobile == true)
+        assertTrue(app2?.allowWifi == true)
+        assertFalse(app2?.allowMobile == true)
+    }
+
+    @Test
+    fun `when ToggleWifiAccess preserves existing rule settings`() = runTest {
+        val existingRule = Rule(
+            packageName = "com.example.app1",
+            isAllowed = true,
+            allowWifi = true,
+            allowMobileData = false
+        )
+        everySuspend { rulesRepository.getRule("com.example.app1") } returns existingRule
+        everySuspend { rulesRepository.saveRule(any()) } returns Unit
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(AppListContract.Event.ToggleWifiAccess("com.example.app1", false))
+        advanceUntilIdle()
+
+        verifySuspend {
+            rulesRepository.saveRule(
+                Rule(
+                    packageName = "com.example.app1",
+                    isAllowed = true,
+                    allowWifi = false,
+                    allowMobileData = false  // Should preserve existing value
+                )
+            )
+        }
     }
 }

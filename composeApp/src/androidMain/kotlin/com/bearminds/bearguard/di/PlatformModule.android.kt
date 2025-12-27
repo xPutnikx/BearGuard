@@ -2,6 +2,8 @@ package com.bearminds.bearguard.di
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import com.bearminds.bearguard.network.AndroidNetworkTypeProvider
+import com.bearminds.bearguard.network.NetworkTypeProvider
 import com.bearminds.bearguard.rules.AndroidAppListProvider
 import com.bearminds.bearguard.rules.data.AppListProvider
 import com.bearminds.bearguard.vpn.AndroidVpnController
@@ -18,4 +20,5 @@ actual val platformModule = module {
 
     single<AppListProvider> { AndroidAppListProvider(androidContext()) }
     single<VpnController> { AndroidVpnController(androidContext()) }
+    single<NetworkTypeProvider> { AndroidNetworkTypeProvider(androidContext()) }
 }

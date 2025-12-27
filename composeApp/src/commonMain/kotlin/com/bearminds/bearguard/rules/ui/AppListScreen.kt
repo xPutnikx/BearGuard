@@ -40,11 +40,14 @@ import bearguard.composeapp.generated.resources.Res
 import bearguard.composeapp.generated.resources.app_list_blocked
 import bearguard.composeapp.generated.resources.app_list_empty
 import bearguard.composeapp.generated.resources.app_list_internet_access
+import bearguard.composeapp.generated.resources.app_list_mobile
 import bearguard.composeapp.generated.resources.app_list_search_hint
 import bearguard.composeapp.generated.resources.app_list_show_blocked
 import bearguard.composeapp.generated.resources.app_list_show_system_apps
 import bearguard.composeapp.generated.resources.app_list_title
+import bearguard.composeapp.generated.resources.app_list_wifi
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -156,6 +159,22 @@ fun AppListScreen(
                                         )
                                     )
                                 },
+                                onWifiToggle = { allowWifi ->
+                                    viewModel.onEvent(
+                                        AppListContract.Event.ToggleWifiAccess(
+                                            packageName = appWithRule.app.packageName,
+                                            allowWifi = allowWifi,
+                                        )
+                                    )
+                                },
+                                onMobileToggle = { allowMobile ->
+                                    viewModel.onEvent(
+                                        AppListContract.Event.ToggleMobileAccess(
+                                            packageName = appWithRule.app.packageName,
+                                            allowMobile = allowMobile,
+                                        )
+                                    )
+                                },
                             )
                         }
                     }
@@ -169,6 +188,8 @@ fun AppListScreen(
 private fun AppListItem(
     appWithRule: AppWithRule,
     onToggle: (Boolean) -> Unit,
+    onWifiToggle: (Boolean) -> Unit,
+    onMobileToggle: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -181,52 +202,100 @@ private fun AppListItem(
             }
         ),
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Status icon
-            Icon(
-                imageVector = if (appWithRule.isAllowed) {
-                    Icons.Default.CheckCircle
-                } else {
-                    Icons.Default.Block
-                },
-                contentDescription = null,
-                modifier = Modifier.size(40.dp),
-                tint = if (appWithRule.isAllowed) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.error
-                },
-            )
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // App info
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = appWithRule.app.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-                Text(
-                    text = if (appWithRule.isAllowed) {
-                        stringResource(Res.string.app_list_internet_access)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Status icon
+                Icon(
+                    imageVector = if (appWithRule.isAllowed) {
+                        Icons.Default.CheckCircle
                     } else {
-                        stringResource(Res.string.app_list_blocked)
+                        Icons.Default.Block
                     },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = if (appWithRule.isAllowed) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                )
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                // App info
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = appWithRule.app.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Text(
+                        text = if (appWithRule.isAllowed) {
+                            stringResource(Res.string.app_list_internet_access)
+                        } else {
+                            stringResource(Res.string.app_list_blocked)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                // Main toggle switch
+                Switch(
+                    checked = appWithRule.isAllowed,
+                    onCheckedChange = onToggle,
                 )
             }
 
-            // Toggle switch
-            Switch(
-                checked = appWithRule.isAllowed,
-                onCheckedChange = onToggle,
-            )
+            // WiFi/Mobile toggles - only shown when app is allowed
+            if (appWithRule.isAllowed) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    // WiFi chip
+                    FilterChip(
+                        selected = appWithRule.allowWifi,
+                        onClick = { onWifiToggle(!appWithRule.allowWifi) },
+                        label = { Text(stringResource(Res.string.app_list_wifi)) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    // Mobile chip
+                    FilterChip(
+                        selected = appWithRule.allowMobile,
+                        onClick = { onMobileToggle(!appWithRule.allowMobile) },
+                        label = { Text(stringResource(Res.string.app_list_mobile)) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
         }
     }
+}
+
+@Preview
+@Composable
+private fun AppListItemPreview() {
+    AppListItem(
+        appWithRule = AppWithRule(
+            app = com.bearminds.bearguard.rules.model.AppInfo(
+                packageName = "com.example.app",
+                name = "Example App",
+                isSystemApp = false,
+                uid = 1000,
+            ),
+            isAllowed = true,
+            allowWifi = true,
+            allowMobile = false,
+        ),
+        onToggle = {},
+        onWifiToggle = {},
+        onMobileToggle = {},
+    )
 }

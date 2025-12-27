@@ -11,13 +11,17 @@ import android.os.ParcelFileDescriptor
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.bearminds.bearguard.MainActivity
+import com.bearminds.bearguard.network.NetworkType
+import com.bearminds.bearguard.network.NetworkTypeProvider
 import com.bearminds.bearguard.rules.data.RulesRepository
+import com.bearminds.bearguard.rules.model.Rule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -55,36 +59,44 @@ class BearGuardVpnService : VpnService(), KoinComponent {
     }
 
     private lateinit var rulesRepository: RulesRepository
+    private lateinit var networkTypeProvider: NetworkTypeProvider
 
     private var vpnInterface: ParcelFileDescriptor? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var currentBlockedPackages: Set<String> = emptySet()
+    private var currentNetworkType: NetworkType = NetworkType.WIFI
     private var restartJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
         rulesRepository = get()
+        networkTypeProvider = get()
+        currentNetworkType = networkTypeProvider.currentNetworkType.value
         createNotificationChannel()
-        observeRuleChanges()
+        observeRuleAndNetworkChanges()
     }
 
     /**
-     * Observe rule changes and restart VPN when blocked apps change.
-     * Uses debounce to prevent rapid restarts when multiple rules change quickly.
+     * Observe rule and network type changes, restart VPN when blocked apps change.
+     * Uses debounce to prevent rapid restarts when multiple changes occur quickly.
      */
-    private fun observeRuleChanges() {
+    private fun observeRuleAndNetworkChanges() {
         serviceScope.launch {
-            rulesRepository.observeRules()
+            combine(
+                rulesRepository.observeRules(),
+                networkTypeProvider.currentNetworkType
+            ) { rules, networkType ->
+                Pair(rules, networkType)
+            }
                 .debounce(RULE_CHANGE_DEBOUNCE_MS)
-                .collect { rules ->
-                    // Filter out BearGuard's package from blocked packages
-                    val newBlockedPackages = rules
-                        .filter { !it.isAllowed && it.packageName != packageName }
-                        .map { it.packageName }
-                        .toSet()
+                .collect { (rules, networkType) ->
+                    // Calculate blocked packages based on current network type
+                    val newBlockedPackages = calculateBlockedPackages(rules, networkType)
 
-                    // Only restart if VPN is running and blocked packages changed
-                    if (_isRunning.value && newBlockedPackages != currentBlockedPackages) {
+                    // Only restart if VPN is running and blocked packages or network changed
+                    if (_isRunning.value &&
+                        (newBlockedPackages != currentBlockedPackages || networkType != currentNetworkType)) {
+                        currentNetworkType = networkType
                         // Cancel any pending restart before starting a new one
                         restartJob?.cancel()
                         restartJob = serviceScope.launch {
@@ -93,6 +105,33 @@ class BearGuardVpnService : VpnService(), KoinComponent {
                     }
                 }
         }
+    }
+
+    /**
+     * Calculate which packages should be blocked based on rules and network type.
+     *
+     * An app is blocked if:
+     * - isAllowed = false (blocked on all networks)
+     * - isAllowed = true but allowWifi = false (when on WiFi)
+     * - isAllowed = true but allowMobileData = false (when on Mobile)
+     */
+    private fun calculateBlockedPackages(rules: List<Rule>, networkType: NetworkType): Set<String> {
+        return rules
+            .filter { rule ->
+                // Never block BearGuard itself
+                if (rule.packageName == packageName) return@filter false
+
+                when {
+                    // Completely blocked
+                    !rule.isAllowed -> true
+                    // Network-specific blocking
+                    networkType == NetworkType.WIFI && !rule.allowWifi -> true
+                    networkType == NetworkType.MOBILE && !rule.allowMobileData -> true
+                    else -> false
+                }
+            }
+            .map { it.packageName }
+            .toSet()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -125,13 +164,13 @@ class BearGuardVpnService : VpnService(), KoinComponent {
     private fun startVpn() {
         if (_isRunning.value) return
 
-        // Load rules to determine which apps to block
+        // Load rules and get current network type to determine which apps to block
         val rules = runBlocking { rulesRepository.getRules() }
-        // Filter out BearGuard's own package to prevent accidental self-blocking
-        val blockedPackages = rules
-            .filter { !it.isAllowed && it.packageName != packageName }
-            .map { it.packageName }
-            .toSet()
+        val networkType = networkTypeProvider.currentNetworkType.value
+        currentNetworkType = networkType
+
+        // Calculate blocked packages based on current network type
+        val blockedPackages = calculateBlockedPackages(rules, networkType)
 
         // Update current state for change detection
         currentBlockedPackages = blockedPackages
