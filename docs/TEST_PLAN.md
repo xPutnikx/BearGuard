@@ -109,6 +109,17 @@
 | 2 | Tap trash icon in top bar | List clears |
 | 3 | Verify | Shows "No traffic logged yet" |
 
+### 2.6 WiFi vs Mobile Data Rules
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Find any app in the list | App shows with main toggle |
+| 2 | Toggle main access OFF | WiFi/Mobile chips disappear |
+| 3 | Toggle main access ON | WiFi/Mobile chips appear |
+| 4 | Toggle WiFi OFF (keep Mobile ON) | WiFi chip shows "blocked" style |
+| 5 | Connect to WiFi, start VPN | App blocked on WiFi |
+| 6 | Connect to Mobile data | App works on Mobile |
+
 ---
 
 ## 4. Firewall Functionality
@@ -134,16 +145,81 @@
 
 ---
 
-## 5. Edge Cases
+## 5. Settings
 
-### 5.1 Rapid Toggle
+### 5.1 Theme Selection
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Open Settings tab | Settings screen loads |
+| 2 | Select "Light" theme | App immediately changes to light mode |
+| 3 | Select "Dark" theme | App immediately changes to dark mode |
+| 4 | Select "System" theme | App follows system theme |
+
+### 5.2 Default Rule for New Apps
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Open Settings | Default rule section visible |
+| 2 | Select "Block" | Setting saved |
+| 3 | Install a new app | New app should have blocked rule by default |
+| 4 | Select "Allow" | Setting saved |
+| 5 | Install another app | New app should be allowed by default |
+
+### 5.3 Show System Apps Default
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Disable "Show system apps by default" | Toggle OFF |
+| 2 | Go to Apps tab | Only user apps shown |
+| 3 | Enable setting | Toggle ON |
+| 4 | Go to Apps tab | System apps shown by default |
+
+### 5.4 Lockdown Mode
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Go to Settings > Security | Lockdown mode toggle visible |
+| 2 | Enable Lockdown Mode | Toggle ON, VPN restarts if active |
+| 3 | Start VPN protection | VPN active |
+| 4 | Open an app WITHOUT explicit allow rule | App cannot connect (blocked) |
+| 5 | Go to Apps, toggle app ON | App gets explicit allow rule |
+| 6 | Try app again | App can now connect |
+| 7 | Disable Lockdown Mode | All apps work normally again |
+
+---
+
+## 6. New App Detection
+
+### 6.1 New App Installation Notification
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Install a new app from Play Store | Installation completes |
+| 2 | Check notification bar | BearGuard notification shows "New app: [AppName]" |
+| 3 | Check notification content | Shows "Internet access allowed" or "blocked" based on default rule |
+| 4 | Tap notification | Opens BearGuard to Apps screen |
+
+### 6.2 App Uninstall Cleanup
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Go to Apps, create a rule for an app | Block or allow the app |
+| 2 | Uninstall that app | App removed from device |
+| 3 | Reinstall the same app | App should get fresh default rule (old rule was cleaned up) |
+
+---
+
+## 7. Edge Cases
+
+### 7.1 Rapid Toggle
 
 | Step | Action | Expected Result |
 |------|--------|-----------------|
 | 1 | Tap Start/Stop rapidly 5 times | App should not crash |
 | 2 | Wait for state to settle | Shows correct final state |
 
-### 5.2 App Kill During VPN
+### 7.2 App Kill During VPN
 
 | Step | Action | Expected Result |
 |------|--------|-----------------|
@@ -151,7 +227,7 @@
 | 2 | Force stop BearGuard from settings | VPN stops |
 | 3 | Check device connectivity | Internet works (no firewall) |
 
-### 5.3 Device Reboot
+### 7.3 Device Reboot
 
 | Step | Action | Expected Result |
 |------|--------|-----------------|
@@ -161,9 +237,9 @@
 
 ---
 
-## 6. Navigation
+## 8. Navigation
 
-### 6.1 Bottom Navigation
+### 8.1 Bottom Navigation
 
 | Step | Action | Expected Result |
 |------|--------|-----------------|
@@ -171,7 +247,7 @@
 | 2 | Verify highlight | Active tab is highlighted |
 | 3 | Tap same tab again | No crash, stays on screen |
 
-### 6.2 Back Button
+### 8.2 Back Button
 
 | Step | Action | Expected Result |
 |------|--------|-----------------|
@@ -192,16 +268,23 @@
 | 2.3 Unblock App | ☐ | ☐ | |
 | 2.4 Search Apps | ☐ | ☐ | |
 | 2.5 System Apps | ☐ | ☐ | |
+| 2.6 WiFi/Mobile Rules | ☐ | ☐ | |
 | 3.1 Empty Traffic | ☐ | ☐ | |
 | 3.2 View Traffic | ☐ | ☐ | |
 | 3.3 Clear Traffic | ☐ | ☐ | |
 | 4.1 Blocking Works | ☐ | ☐ | |
 | 4.2 Allowed Works | ☐ | ☐ | |
-| 5.1 Rapid Toggle | ☐ | ☐ | |
-| 5.2 App Kill | ☐ | ☐ | |
-| 5.3 Reboot | ☐ | ☐ | |
-| 6.1 Bottom Nav | ☐ | ☐ | |
-| 6.2 Back Button | ☐ | ☐ | |
+| 5.1 Theme Selection | ☐ | ☐ | |
+| 5.2 Default Rule | ☐ | ☐ | |
+| 5.3 System Apps Default | ☐ | ☐ | |
+| 5.4 Lockdown Mode | ☐ | ☐ | |
+| 6.1 New App Notification | ☐ | ☐ | |
+| 6.2 Uninstall Cleanup | ☐ | ☐ | |
+| 7.1 Rapid Toggle | ☐ | ☐ | |
+| 7.2 App Kill | ☐ | ☐ | |
+| 7.3 Reboot | ☐ | ☐ | |
+| 8.1 Bottom Nav | ☐ | ☐ | |
+| 8.2 Back Button | ☐ | ☐ | |
 
 **Tested by:** _________________ **Date:** _________________
 
