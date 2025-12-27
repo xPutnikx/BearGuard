@@ -32,6 +32,7 @@ class SettingsViewModelTest {
     private val themeModeFlow = MutableStateFlow(ThemeMode.SYSTEM)
     private val defaultRuleFlow = MutableStateFlow(DefaultRule.ALLOW)
     private val showSystemAppsFlow = MutableStateFlow(false)
+    private val lockdownModeFlow = MutableStateFlow(false)
 
     @BeforeTest
     fun setUp() {
@@ -40,6 +41,7 @@ class SettingsViewModelTest {
         every { settingsRepository.observeThemeMode() } returns themeModeFlow
         every { settingsRepository.observeDefaultRuleForNewApps() } returns defaultRuleFlow
         every { settingsRepository.observeShowSystemAppsByDefault() } returns showSystemAppsFlow
+        every { settingsRepository.observeLockdownMode() } returns lockdownModeFlow
     }
 
     @AfterTest
@@ -64,6 +66,7 @@ class SettingsViewModelTest {
         assertEquals(ThemeMode.SYSTEM, state.themeMode)
         assertEquals(DefaultRule.ALLOW, state.defaultRuleForNewApps)
         assertFalse(state.showSystemAppsByDefault)
+        assertFalse(state.lockdownMode)
     }
 
     @Test
@@ -71,6 +74,7 @@ class SettingsViewModelTest {
         themeModeFlow.value = ThemeMode.DARK
         defaultRuleFlow.value = DefaultRule.BLOCK
         showSystemAppsFlow.value = true
+        lockdownModeFlow.value = true
 
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -79,6 +83,7 @@ class SettingsViewModelTest {
         assertEquals(ThemeMode.DARK, state.themeMode)
         assertEquals(DefaultRule.BLOCK, state.defaultRuleForNewApps)
         assertTrue(state.showSystemAppsByDefault)
+        assertTrue(state.lockdownMode)
     }
 
     // ===================
@@ -232,12 +237,14 @@ class SettingsViewModelTest {
         themeModeFlow.value = ThemeMode.LIGHT
         defaultRuleFlow.value = DefaultRule.BLOCK
         showSystemAppsFlow.value = true
+        lockdownModeFlow.value = true
         advanceUntilIdle()
 
         val state = viewModel.viewState.value
         assertEquals(ThemeMode.LIGHT, state.themeMode)
         assertEquals(DefaultRule.BLOCK, state.defaultRuleForNewApps)
         assertTrue(state.showSystemAppsByDefault)
+        assertTrue(state.lockdownMode)
     }
 
     @Test
@@ -253,6 +260,7 @@ class SettingsViewModelTest {
         assertEquals(ThemeMode.DARK, state.themeMode)
         assertEquals(DefaultRule.ALLOW, state.defaultRuleForNewApps)
         assertFalse(state.showSystemAppsByDefault)
+        assertFalse(state.lockdownMode)
 
         // Then change show system apps
         showSystemAppsFlow.value = true
@@ -262,5 +270,48 @@ class SettingsViewModelTest {
         assertEquals(ThemeMode.DARK, state.themeMode)
         assertEquals(DefaultRule.ALLOW, state.defaultRuleForNewApps)
         assertTrue(state.showSystemAppsByDefault)
+        assertFalse(state.lockdownMode)
+    }
+
+    // ===================
+    // Lockdown Mode Tests
+    // ===================
+
+    @Test
+    fun `when lockdown mode changes in repository then state updates`() = runTest {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.viewState.value.lockdownMode)
+
+        lockdownModeFlow.value = true
+        advanceUntilIdle()
+
+        assertTrue(viewModel.viewState.value.lockdownMode)
+    }
+
+    @Test
+    fun `when SetLockdownMode event to true then repository is called`() = runTest {
+        everySuspend { settingsRepository.setLockdownMode(true) } returns Unit
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(SettingsContract.Event.SetLockdownMode(true))
+        advanceUntilIdle()
+
+        verifySuspend { settingsRepository.setLockdownMode(true) }
+    }
+
+    @Test
+    fun `when SetLockdownMode event to false then repository is called`() = runTest {
+        lockdownModeFlow.value = true
+        everySuspend { settingsRepository.setLockdownMode(false) } returns Unit
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(SettingsContract.Event.SetLockdownMode(false))
+        advanceUntilIdle()
+
+        verifySuspend { settingsRepository.setLockdownMode(false) }
     }
 }

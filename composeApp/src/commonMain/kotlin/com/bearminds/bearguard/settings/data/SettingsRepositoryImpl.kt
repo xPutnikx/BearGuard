@@ -22,6 +22,7 @@ class SettingsRepositoryImpl(
         private val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
         private val DEFAULT_RULE_KEY = stringPreferencesKey("default_rule_for_new_apps")
         private val SHOW_SYSTEM_APPS_KEY = booleanPreferencesKey("show_system_apps_by_default")
+        private val LOCKDOWN_MODE_KEY = booleanPreferencesKey("lockdown_mode")
     }
 
     override fun observeThemeMode(): Flow<ThemeMode> {
@@ -73,6 +74,22 @@ class SettingsRepositoryImpl(
     override suspend fun setShowSystemAppsByDefault(show: Boolean) {
         dataStore.edit { preferences ->
             preferences[SHOW_SYSTEM_APPS_KEY] = show
+        }
+    }
+
+    override fun observeLockdownMode(): Flow<Boolean> {
+        return dataStore.data.map { preferences ->
+            preferences[LOCKDOWN_MODE_KEY] ?: false
+        }
+    }
+
+    override suspend fun getLockdownMode(): Boolean {
+        return observeLockdownMode().first()
+    }
+
+    override suspend fun setLockdownMode(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[LOCKDOWN_MODE_KEY] = enabled
         }
     }
 }

@@ -32,6 +32,9 @@ import bearguard.composeapp.generated.resources.settings_behavior
 import bearguard.composeapp.generated.resources.settings_default_rule
 import bearguard.composeapp.generated.resources.settings_default_rule_allow
 import bearguard.composeapp.generated.resources.settings_default_rule_block
+import bearguard.composeapp.generated.resources.settings_lockdown_mode
+import bearguard.composeapp.generated.resources.settings_lockdown_mode_description
+import bearguard.composeapp.generated.resources.settings_security
 import bearguard.composeapp.generated.resources.settings_show_system_apps
 import bearguard.composeapp.generated.resources.settings_theme
 import bearguard.composeapp.generated.resources.settings_theme_dark
@@ -98,6 +101,18 @@ private fun SettingsScreenContent(
                 title = stringResource(Res.string.settings_show_system_apps),
                 checked = state.showSystemAppsByDefault,
                 onCheckedChange = { onEvent(SettingsContract.Event.SetShowSystemAppsByDefault(it)) },
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // Security Section
+            SectionHeader(title = stringResource(Res.string.settings_security))
+
+            SwitchPreferenceWithDescription(
+                title = stringResource(Res.string.settings_lockdown_mode),
+                description = stringResource(Res.string.settings_lockdown_mode_description),
+                checked = state.lockdownMode,
+                onCheckedChange = { onEvent(SettingsContract.Event.SetLockdownMode(it)) },
             )
         }
     }
@@ -251,6 +266,42 @@ private fun SwitchPreference(
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f),
         )
+        Switch(
+            checked = checked,
+            onCheckedChange = null,
+        )
+    }
+}
+
+@Composable
+private fun SwitchPreferenceWithDescription(
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
         Switch(
             checked = checked,
             onCheckedChange = null,

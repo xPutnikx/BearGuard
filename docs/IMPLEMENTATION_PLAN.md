@@ -197,9 +197,9 @@ Block specific domains.
 Block all traffic except explicitly allowed apps.
 
 **Tasks:**
-- [ ] Add global lockdown toggle
-- [ ] When enabled, only apps with explicit "allow" rule can connect
-- [ ] Quick toggle widget
+- [x] Add global lockdown toggle in Settings
+- [x] When enabled, only apps with explicit "allow" rule can connect
+- [x] VPN service observes lockdown mode and recalculates blocked packages
 
 ### 3.3 Roaming Rules
 - [ ] Detect roaming state

@@ -43,4 +43,7 @@
     <string name="settings_default_rule_allow">Allow</string>
     <string name="settings_default_rule_block">Block</string>
     <string name="settings_show_system_apps">Show system apps by default</string>
+    <string name="settings_security">Security</string>
+    <string name="settings_lockdown_mode">Lockdown Mode</string>
+    <string name="settings_lockdown_mode_description">Block all apps without explicit allow rules</string>
 </resources>

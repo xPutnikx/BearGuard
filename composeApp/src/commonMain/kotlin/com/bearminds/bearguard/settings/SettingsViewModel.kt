@@ -25,26 +25,36 @@ class SettingsViewModel(
             settingsRepository.observeThemeMode(),
             settingsRepository.observeDefaultRuleForNewApps(),
             settingsRepository.observeShowSystemAppsByDefault(),
-        ) { themeMode, defaultRule, showSystemApps ->
-            Triple(themeMode, defaultRule, showSystemApps)
+            settingsRepository.observeLockdownMode(),
+        ) { themeMode, defaultRule, showSystemApps, lockdownMode ->
+            SettingsState(themeMode, defaultRule, showSystemApps, lockdownMode)
         }
-            .onEach { (themeMode, defaultRule, showSystemApps) ->
+            .onEach { settings ->
                 setState {
                     copy(
-                        themeMode = themeMode,
-                        defaultRuleForNewApps = defaultRule,
-                        showSystemAppsByDefault = showSystemApps,
+                        themeMode = settings.themeMode,
+                        defaultRuleForNewApps = settings.defaultRule,
+                        showSystemAppsByDefault = settings.showSystemApps,
+                        lockdownMode = settings.lockdownMode,
                     )
                 }
             }
             .launchIn(viewModelScope)
     }
 
+    private data class SettingsState(
+        val themeMode: ThemeMode,
+        val defaultRule: DefaultRule,
+        val showSystemApps: Boolean,
+        val lockdownMode: Boolean,
+    )
+
     override fun handleEvent(event: SettingsContract.Event) {
         when (event) {
             is SettingsContract.Event.SetThemeMode -> setThemeMode(event.mode)
             is SettingsContract.Event.SetDefaultRuleForNewApps -> setDefaultRuleForNewApps(event.rule)
             is SettingsContract.Event.SetShowSystemAppsByDefault -> setShowSystemAppsByDefault(event.show)
+            is SettingsContract.Event.SetLockdownMode -> setLockdownMode(event.enabled)
         }
     }
 
@@ -63,6 +73,12 @@ class SettingsViewModel(
     private fun setShowSystemAppsByDefault(show: Boolean) {
         viewModelScope.launch {
             settingsRepository.setShowSystemAppsByDefault(show)
+        }
+    }
+
+    private fun setLockdownMode(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setLockdownMode(enabled)
         }
     }
 }

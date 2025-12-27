@@ -12,12 +12,14 @@ object SettingsContract {
         val themeMode: ThemeMode = ThemeMode.SYSTEM,
         val defaultRuleForNewApps: DefaultRule = DefaultRule.ALLOW,
         val showSystemAppsByDefault: Boolean = false,
+        val lockdownMode: Boolean = false,
     ) : ViewState
 
     sealed interface Event : ViewEvent {
         data class SetThemeMode(val mode: ThemeMode) : Event
         data class SetDefaultRuleForNewApps(val rule: DefaultRule) : Event
         data class SetShowSystemAppsByDefault(val show: Boolean) : Event
+        data class SetLockdownMode(val enabled: Boolean) : Event
     }
 
     enum class ThemeMode {

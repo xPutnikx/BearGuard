@@ -53,4 +53,20 @@ interface SettingsRepository {
      * Set whether system apps should be shown by default.
      */
     suspend fun setShowSystemAppsByDefault(show: Boolean)
+
+    /**
+     * Observe the lockdown mode setting.
+     * When enabled, only apps with explicit "allow" rules can connect.
+     */
+    fun observeLockdownMode(): Flow<Boolean>
+
+    /**
+     * Get whether lockdown mode is enabled.
+     */
+    suspend fun getLockdownMode(): Boolean
+
+    /**
+     * Set lockdown mode.
+     */
+    suspend fun setLockdownMode(enabled: Boolean)
 }

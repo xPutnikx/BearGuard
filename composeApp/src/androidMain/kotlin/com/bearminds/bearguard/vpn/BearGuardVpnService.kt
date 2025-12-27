@@ -13,8 +13,10 @@ import androidx.core.app.NotificationCompat
 import com.bearminds.bearguard.MainActivity
 import com.bearminds.bearguard.network.NetworkType
 import com.bearminds.bearguard.network.NetworkTypeProvider
+import com.bearminds.bearguard.rules.data.AppListProvider
 import com.bearminds.bearguard.rules.data.RulesRepository
 import com.bearminds.bearguard.rules.model.Rule
+import com.bearminds.bearguard.settings.data.SettingsRepository
 import com.bearminds.bearguard.traffic.ConnectionOwnerResolver
 import com.bearminds.bearguard.traffic.IpPacketParser
 import com.bearminds.bearguard.traffic.data.TrafficRepository
@@ -68,12 +70,15 @@ class BearGuardVpnService : VpnService(), KoinComponent {
     private lateinit var rulesRepository: RulesRepository
     private lateinit var networkTypeProvider: NetworkTypeProvider
     private lateinit var trafficRepository: TrafficRepository
+    private lateinit var settingsRepository: SettingsRepository
+    private lateinit var appListProvider: AppListProvider
     private lateinit var connectionOwnerResolver: ConnectionOwnerResolver
 
     private var vpnInterface: ParcelFileDescriptor? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var currentBlockedPackages: Set<String> = emptySet()
     private var currentNetworkType: NetworkType = NetworkType.WIFI
+    private var currentLockdownMode: Boolean = false
     private var restartJob: Job? = null
 
     override fun onCreate() {
@@ -81,6 +86,8 @@ class BearGuardVpnService : VpnService(), KoinComponent {
         rulesRepository = get()
         networkTypeProvider = get()
         trafficRepository = get()
+        settingsRepository = get()
+        appListProvider = get()
         connectionOwnerResolver = ConnectionOwnerResolver(this)
         currentNetworkType = networkTypeProvider.currentNetworkType.value
         createNotificationChannel()
@@ -88,26 +95,31 @@ class BearGuardVpnService : VpnService(), KoinComponent {
     }
 
     /**
-     * Observe rule and network type changes, restart VPN when blocked apps change.
+     * Observe rule, network type, and lockdown mode changes.
+     * Restarts VPN when blocked apps change.
      * Uses debounce to prevent rapid restarts when multiple changes occur quickly.
      */
     private fun observeRuleAndNetworkChanges() {
         serviceScope.launch {
             combine(
                 rulesRepository.observeRules(),
-                networkTypeProvider.currentNetworkType
-            ) { rules, networkType ->
-                Pair(rules, networkType)
+                networkTypeProvider.currentNetworkType,
+                settingsRepository.observeLockdownMode()
+            ) { rules, networkType, lockdownMode ->
+                Triple(rules, networkType, lockdownMode)
             }
                 .debounce(RULE_CHANGE_DEBOUNCE_MS)
-                .collect { (rules, networkType) ->
-                    // Calculate blocked packages based on current network type
-                    val newBlockedPackages = calculateBlockedPackages(rules, networkType)
+                .collect { (rules, networkType, lockdownMode) ->
+                    // Calculate blocked packages based on current state
+                    val newBlockedPackages = calculateBlockedPackages(rules, networkType, lockdownMode)
 
-                    // Only restart if VPN is running and blocked packages or network changed
+                    // Only restart if VPN is running and state changed
                     if (_isRunning.value &&
-                        (newBlockedPackages != currentBlockedPackages || networkType != currentNetworkType)) {
+                        (newBlockedPackages != currentBlockedPackages ||
+                         networkType != currentNetworkType ||
+                         lockdownMode != currentLockdownMode)) {
                         currentNetworkType = networkType
+                        currentLockdownMode = lockdownMode
                         // Cancel any pending restart before starting a new one
                         restartJob?.cancel()
                         restartJob = serviceScope.launch {
@@ -119,30 +131,65 @@ class BearGuardVpnService : VpnService(), KoinComponent {
     }
 
     /**
-     * Calculate which packages should be blocked based on rules and network type.
+     * Calculate which packages should be blocked based on rules, network type, and lockdown mode.
      *
-     * An app is blocked if:
+     * Normal mode - an app is blocked if:
      * - isAllowed = false (blocked on all networks)
      * - isAllowed = true but allowWifi = false (when on WiFi)
      * - isAllowed = true but allowMobileData = false (when on Mobile)
+     *
+     * Lockdown mode - an app is blocked if:
+     * - No explicit rule exists for the app (block by default)
+     * - Any of the normal blocking conditions apply
      */
-    private fun calculateBlockedPackages(rules: List<Rule>, networkType: NetworkType): Set<String> {
-        return rules
-            .filter { rule ->
-                // Never block BearGuard itself
-                if (rule.packageName == packageName) return@filter false
+    private fun calculateBlockedPackages(
+        rules: List<Rule>,
+        networkType: NetworkType,
+        lockdownMode: Boolean
+    ): Set<String> {
+        val rulesMap = rules.associateBy { it.packageName }
 
-                when {
-                    // Completely blocked
-                    !rule.isAllowed -> true
-                    // Network-specific blocking
-                    networkType == NetworkType.WIFI && !rule.allowWifi -> true
-                    networkType == NetworkType.MOBILE && !rule.allowMobileData -> true
-                    else -> false
+        return if (lockdownMode) {
+            // In lockdown mode, block all apps except those with explicit "allow" rules
+            val installedApps = runBlocking { appListProvider.getInstalledApps(includeSystemApps = true) }
+            installedApps
+                .filter { app ->
+                    // Never block BearGuard itself
+                    if (app.packageName == packageName) return@filter false
+
+                    val rule = rulesMap[app.packageName]
+                    when {
+                        // No rule = blocked in lockdown mode
+                        rule == null -> true
+                        // Explicitly blocked
+                        !rule.isAllowed -> true
+                        // Network-specific blocking
+                        networkType == NetworkType.WIFI && !rule.allowWifi -> true
+                        networkType == NetworkType.MOBILE && !rule.allowMobileData -> true
+                        else -> false
+                    }
                 }
-            }
-            .map { it.packageName }
-            .toSet()
+                .map { it.packageName }
+                .toSet()
+        } else {
+            // Normal mode - only block apps with explicit block rules
+            rules
+                .filter { rule ->
+                    // Never block BearGuard itself
+                    if (rule.packageName == packageName) return@filter false
+
+                    when {
+                        // Completely blocked
+                        !rule.isAllowed -> true
+                        // Network-specific blocking
+                        networkType == NetworkType.WIFI && !rule.allowWifi -> true
+                        networkType == NetworkType.MOBILE && !rule.allowMobileData -> true
+                        else -> false
+                    }
+                }
+                .map { it.packageName }
+                .toSet()
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -175,13 +222,15 @@ class BearGuardVpnService : VpnService(), KoinComponent {
     private fun startVpn() {
         if (_isRunning.value) return
 
-        // Load rules and get current network type to determine which apps to block
+        // Load rules, network type, and lockdown mode to determine which apps to block
         val rules = runBlocking { rulesRepository.getRules() }
         val networkType = networkTypeProvider.currentNetworkType.value
+        val lockdownMode = runBlocking { settingsRepository.getLockdownMode() }
         currentNetworkType = networkType
+        currentLockdownMode = lockdownMode
 
-        // Calculate blocked packages based on current network type
-        val blockedPackages = calculateBlockedPackages(rules, networkType)
+        // Calculate blocked packages based on current state
+        val blockedPackages = calculateBlockedPackages(rules, networkType, lockdownMode)
 
         // Update current state for change detection
         currentBlockedPackages = blockedPackages
