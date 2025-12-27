@@ -81,6 +81,30 @@
 | 3 | Wait for reload | More apps appear in list |
 | 4 | Tap chip again | Returns to user apps only |
 
+### 2.6 WiFi vs Mobile Data Rules
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Find any app in the list | App shows with main toggle |
+| 2 | Toggle main access OFF | WiFi/Mobile/Screen off chips disappear |
+| 3 | Toggle main access ON | WiFi/Mobile/Screen off chips appear |
+| 4 | Toggle WiFi OFF (keep Mobile ON) | WiFi chip shows unselected style |
+| 5 | Connect to WiFi, start VPN | App blocked on WiFi |
+| 6 | Connect to Mobile data | App works on Mobile |
+
+### 2.7 Screen Off Rules (Battery Saving)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Find any app in the list | App shows with main toggle ON |
+| 2 | Verify Screen off chip is visible | Screen off chip appears (selected by default) |
+| 3 | Toggle Screen off chip OFF | Chip shows unselected style |
+| 4 | Start VPN protection | VPN active |
+| 5 | Turn off device screen | Screen turns off |
+| 6 | Wait 5 seconds, turn screen back on | App was blocked while screen was off |
+| 7 | Toggle Screen off chip back ON | Chip shows selected style |
+| 8 | Turn off screen again | App can still access internet when screen off |
+
 ---
 
 ## 3. Traffic Monitoring
@@ -108,30 +132,6 @@
 | 1 | With traffic logged | Connections visible |
 | 2 | Tap trash icon in top bar | List clears |
 | 3 | Verify | Shows "No traffic logged yet" |
-
-### 2.6 WiFi vs Mobile Data Rules
-
-| Step | Action | Expected Result |
-|------|--------|-----------------|
-| 1 | Find any app in the list | App shows with main toggle |
-| 2 | Toggle main access OFF | WiFi/Mobile chips disappear |
-| 3 | Toggle main access ON | WiFi/Mobile chips appear |
-| 4 | Toggle WiFi OFF (keep Mobile ON) | WiFi chip shows "blocked" style |
-| 5 | Connect to WiFi, start VPN | App blocked on WiFi |
-| 6 | Connect to Mobile data | App works on Mobile |
-
-### 2.7 Screen Off Rules (Battery Saving)
-
-| Step | Action | Expected Result |
-|------|--------|-----------------|
-| 1 | Find any app in the list | App shows with main toggle ON |
-| 2 | Verify Screen off chip is visible | Screen off chip appears (selected by default) |
-| 3 | Toggle Screen off chip OFF | Chip shows "blocked" style |
-| 4 | Start VPN protection | VPN active |
-| 5 | Turn off device screen | Screen turns off |
-| 6 | Wait 5 seconds, turn screen back on | App was blocked while screen was off |
-| 7 | Toggle Screen off chip back ON | Chip shows "selected" style |
-| 8 | Turn off screen again | App can still access internet when screen off |
 
 ---
 
