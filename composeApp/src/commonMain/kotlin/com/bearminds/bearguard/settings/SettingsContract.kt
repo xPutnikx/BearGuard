@@ -13,6 +13,7 @@ object SettingsContract {
         val defaultRuleForNewApps: DefaultRule = DefaultRule.ALLOW,
         val showSystemAppsByDefault: Boolean = false,
         val lockdownMode: Boolean = false,
+        val autoStartOnBoot: Boolean = false,
     ) : ViewState
 
     sealed interface Event : ViewEvent {
@@ -20,6 +21,7 @@ object SettingsContract {
         data class SetDefaultRuleForNewApps(val rule: DefaultRule) : Event
         data class SetShowSystemAppsByDefault(val show: Boolean) : Event
         data class SetLockdownMode(val enabled: Boolean) : Event
+        data class SetAutoStartOnBoot(val enabled: Boolean) : Event
     }
 
     enum class ThemeMode {

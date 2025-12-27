@@ -33,6 +33,7 @@ class SettingsViewModelTest {
     private val defaultRuleFlow = MutableStateFlow(DefaultRule.ALLOW)
     private val showSystemAppsFlow = MutableStateFlow(false)
     private val lockdownModeFlow = MutableStateFlow(false)
+    private val autoStartFlow = MutableStateFlow(false)
 
     @BeforeTest
     fun setUp() {
@@ -42,6 +43,7 @@ class SettingsViewModelTest {
         every { settingsRepository.observeDefaultRuleForNewApps() } returns defaultRuleFlow
         every { settingsRepository.observeShowSystemAppsByDefault() } returns showSystemAppsFlow
         every { settingsRepository.observeLockdownMode() } returns lockdownModeFlow
+        every { settingsRepository.observeAutoStartOnBoot() } returns autoStartFlow
     }
 
     @AfterTest
@@ -67,6 +69,7 @@ class SettingsViewModelTest {
         assertEquals(DefaultRule.ALLOW, state.defaultRuleForNewApps)
         assertFalse(state.showSystemAppsByDefault)
         assertFalse(state.lockdownMode)
+        assertFalse(state.autoStartOnBoot)
     }
 
     @Test
@@ -75,6 +78,7 @@ class SettingsViewModelTest {
         defaultRuleFlow.value = DefaultRule.BLOCK
         showSystemAppsFlow.value = true
         lockdownModeFlow.value = true
+        autoStartFlow.value = true
 
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -84,6 +88,7 @@ class SettingsViewModelTest {
         assertEquals(DefaultRule.BLOCK, state.defaultRuleForNewApps)
         assertTrue(state.showSystemAppsByDefault)
         assertTrue(state.lockdownMode)
+        assertTrue(state.autoStartOnBoot)
     }
 
     // ===================
@@ -238,6 +243,7 @@ class SettingsViewModelTest {
         defaultRuleFlow.value = DefaultRule.BLOCK
         showSystemAppsFlow.value = true
         lockdownModeFlow.value = true
+        autoStartFlow.value = true
         advanceUntilIdle()
 
         val state = viewModel.viewState.value
@@ -245,6 +251,7 @@ class SettingsViewModelTest {
         assertEquals(DefaultRule.BLOCK, state.defaultRuleForNewApps)
         assertTrue(state.showSystemAppsByDefault)
         assertTrue(state.lockdownMode)
+        assertTrue(state.autoStartOnBoot)
     }
 
     @Test
@@ -261,6 +268,7 @@ class SettingsViewModelTest {
         assertEquals(DefaultRule.ALLOW, state.defaultRuleForNewApps)
         assertFalse(state.showSystemAppsByDefault)
         assertFalse(state.lockdownMode)
+        assertFalse(state.autoStartOnBoot)
 
         // Then change show system apps
         showSystemAppsFlow.value = true
@@ -271,6 +279,7 @@ class SettingsViewModelTest {
         assertEquals(DefaultRule.ALLOW, state.defaultRuleForNewApps)
         assertTrue(state.showSystemAppsByDefault)
         assertFalse(state.lockdownMode)
+        assertFalse(state.autoStartOnBoot)
     }
 
     // ===================
@@ -313,5 +322,47 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         verifySuspend { settingsRepository.setLockdownMode(false) }
+    }
+
+    // ===================
+    // Auto-Start Tests
+    // ===================
+
+    @Test
+    fun `when auto-start changes in repository then state updates`() = runTest {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.viewState.value.autoStartOnBoot)
+
+        autoStartFlow.value = true
+        advanceUntilIdle()
+
+        assertTrue(viewModel.viewState.value.autoStartOnBoot)
+    }
+
+    @Test
+    fun `when SetAutoStartOnBoot event to true then repository is called`() = runTest {
+        everySuspend { settingsRepository.setAutoStartOnBoot(true) } returns Unit
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(SettingsContract.Event.SetAutoStartOnBoot(true))
+        advanceUntilIdle()
+
+        verifySuspend { settingsRepository.setAutoStartOnBoot(true) }
+    }
+
+    @Test
+    fun `when SetAutoStartOnBoot event to false then repository is called`() = runTest {
+        autoStartFlow.value = true
+        everySuspend { settingsRepository.setAutoStartOnBoot(false) } returns Unit
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(SettingsContract.Event.SetAutoStartOnBoot(false))
+        advanceUntilIdle()
+
+        verifySuspend { settingsRepository.setAutoStartOnBoot(false) }
     }
 }

@@ -26,8 +26,9 @@ class SettingsViewModel(
             settingsRepository.observeDefaultRuleForNewApps(),
             settingsRepository.observeShowSystemAppsByDefault(),
             settingsRepository.observeLockdownMode(),
-        ) { themeMode, defaultRule, showSystemApps, lockdownMode ->
-            SettingsState(themeMode, defaultRule, showSystemApps, lockdownMode)
+            settingsRepository.observeAutoStartOnBoot(),
+        ) { themeMode, defaultRule, showSystemApps, lockdownMode, autoStart ->
+            SettingsState(themeMode, defaultRule, showSystemApps, lockdownMode, autoStart)
         }
             .onEach { settings ->
                 setState {
@@ -36,6 +37,7 @@ class SettingsViewModel(
                         defaultRuleForNewApps = settings.defaultRule,
                         showSystemAppsByDefault = settings.showSystemApps,
                         lockdownMode = settings.lockdownMode,
+                        autoStartOnBoot = settings.autoStartOnBoot,
                     )
                 }
             }
@@ -47,6 +49,7 @@ class SettingsViewModel(
         val defaultRule: DefaultRule,
         val showSystemApps: Boolean,
         val lockdownMode: Boolean,
+        val autoStartOnBoot: Boolean,
     )
 
     override fun handleEvent(event: SettingsContract.Event) {
@@ -55,6 +58,7 @@ class SettingsViewModel(
             is SettingsContract.Event.SetDefaultRuleForNewApps -> setDefaultRuleForNewApps(event.rule)
             is SettingsContract.Event.SetShowSystemAppsByDefault -> setShowSystemAppsByDefault(event.show)
             is SettingsContract.Event.SetLockdownMode -> setLockdownMode(event.enabled)
+            is SettingsContract.Event.SetAutoStartOnBoot -> setAutoStartOnBoot(event.enabled)
         }
     }
 
@@ -79,6 +83,12 @@ class SettingsViewModel(
     private fun setLockdownMode(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setLockdownMode(enabled)
+        }
+    }
+
+    private fun setAutoStartOnBoot(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setAutoStartOnBoot(enabled)
         }
     }
 }

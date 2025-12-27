@@ -32,9 +32,12 @@ import bearguard.composeapp.generated.resources.settings_behavior
 import bearguard.composeapp.generated.resources.settings_default_rule
 import bearguard.composeapp.generated.resources.settings_default_rule_allow
 import bearguard.composeapp.generated.resources.settings_default_rule_block
+import bearguard.composeapp.generated.resources.settings_auto_start
+import bearguard.composeapp.generated.resources.settings_auto_start_description
 import bearguard.composeapp.generated.resources.settings_lockdown_mode
 import bearguard.composeapp.generated.resources.settings_lockdown_mode_description
 import bearguard.composeapp.generated.resources.settings_security
+import bearguard.composeapp.generated.resources.settings_startup
 import bearguard.composeapp.generated.resources.settings_show_system_apps
 import bearguard.composeapp.generated.resources.settings_theme
 import bearguard.composeapp.generated.resources.settings_theme_dark
@@ -113,6 +116,18 @@ private fun SettingsScreenContent(
                 description = stringResource(Res.string.settings_lockdown_mode_description),
                 checked = state.lockdownMode,
                 onCheckedChange = { onEvent(SettingsContract.Event.SetLockdownMode(it)) },
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // Startup Section
+            SectionHeader(title = stringResource(Res.string.settings_startup))
+
+            SwitchPreferenceWithDescription(
+                title = stringResource(Res.string.settings_auto_start),
+                description = stringResource(Res.string.settings_auto_start_description),
+                checked = state.autoStartOnBoot,
+                onCheckedChange = { onEvent(SettingsContract.Event.SetAutoStartOnBoot(it)) },
             )
         }
     }

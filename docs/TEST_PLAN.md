@@ -187,6 +187,17 @@
 | 6 | Try app again | App can now connect |
 | 7 | Disable Lockdown Mode | All apps work normally again |
 
+### 5.5 Auto-Start on Boot
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Go to Settings > Startup | Auto-start toggle visible |
+| 2 | Enable "Auto-start on boot" | Toggle ON |
+| 3 | Reboot device | Device restarts |
+| 4 | Check notification bar | BearGuard VPN starts automatically |
+| 5 | Disable "Auto-start on boot" | Toggle OFF |
+| 6 | Reboot device | VPN does not auto-start |
+
 ---
 
 ## 6. New App Detection
@@ -278,6 +289,7 @@
 | 5.2 Default Rule | ☐ | ☐ | |
 | 5.3 System Apps Default | ☐ | ☐ | |
 | 5.4 Lockdown Mode | ☐ | ☐ | |
+| 5.5 Auto-Start Boot | ☐ | ☐ | |
 | 6.1 New App Notification | ☐ | ☐ | |
 | 6.2 Uninstall Cleanup | ☐ | ☐ | |
 | 7.1 Rapid Toggle | ☐ | ☐ | |

@@ -250,8 +250,9 @@ Currently placeholder. Implement actual settings.
 - [ ] Export traffic logs (CSV/JSON)
 
 ### 5.3 Auto-Start on Boot
-- [ ] Register BOOT_COMPLETED receiver
-- [ ] Start VPN service on boot (if enabled)
+- [x] Register BOOT_COMPLETED receiver - `BootCompletedReceiver.kt`
+- [x] Add auto-start toggle to Settings screen
+- [x] Start VPN service on boot (if enabled)
 
 ---
 

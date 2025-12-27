@@ -69,4 +69,19 @@ interface SettingsRepository {
      * Set lockdown mode.
      */
     suspend fun setLockdownMode(enabled: Boolean)
+
+    /**
+     * Observe the auto-start on boot setting.
+     */
+    fun observeAutoStartOnBoot(): Flow<Boolean>
+
+    /**
+     * Get whether auto-start on boot is enabled.
+     */
+    suspend fun getAutoStartOnBoot(): Boolean
+
+    /**
+     * Set auto-start on boot.
+     */
+    suspend fun setAutoStartOnBoot(enabled: Boolean)
 }

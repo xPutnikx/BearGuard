@@ -23,6 +23,7 @@ class SettingsRepositoryImpl(
         private val DEFAULT_RULE_KEY = stringPreferencesKey("default_rule_for_new_apps")
         private val SHOW_SYSTEM_APPS_KEY = booleanPreferencesKey("show_system_apps_by_default")
         private val LOCKDOWN_MODE_KEY = booleanPreferencesKey("lockdown_mode")
+        private val AUTO_START_ON_BOOT_KEY = booleanPreferencesKey("auto_start_on_boot")
     }
 
     override fun observeThemeMode(): Flow<ThemeMode> {
@@ -90,6 +91,22 @@ class SettingsRepositoryImpl(
     override suspend fun setLockdownMode(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[LOCKDOWN_MODE_KEY] = enabled
+        }
+    }
+
+    override fun observeAutoStartOnBoot(): Flow<Boolean> {
+        return dataStore.data.map { preferences ->
+            preferences[AUTO_START_ON_BOOT_KEY] ?: false
+        }
+    }
+
+    override suspend fun getAutoStartOnBoot(): Boolean {
+        return observeAutoStartOnBoot().first()
+    }
+
+    override suspend fun setAutoStartOnBoot(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[AUTO_START_ON_BOOT_KEY] = enabled
         }
     }
 }

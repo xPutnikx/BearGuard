@@ -46,4 +46,7 @@
     <string name="settings_security">Security</string>
     <string name="settings_lockdown_mode">Lockdown Mode</string>
     <string name="settings_lockdown_mode_description">Block all apps without explicit allow rules</string>
+    <string name="settings_startup">Startup</string>
+    <string name="settings_auto_start">Auto-start on boot</string>
+    <string name="settings_auto_start_description">Automatically start protection when device boots</string>
 </resources>
