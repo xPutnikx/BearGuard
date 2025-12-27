@@ -4,19 +4,22 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.bearminds.bearguard.MainActivity
-import com.bearminds.bearguard.R
+import com.bearminds.bearguard.rules.data.RulesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.get
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
@@ -29,13 +32,13 @@ import java.nio.ByteBuffer
  *
  * How it works:
  * 1. Creates a VPN tunnel that routes all device traffic through it
- * 2. Reads packets from the tunnel
- * 3. For allowed apps: forwards packets to the actual network
- * 4. For blocked apps: drops packets silently (sinkhole)
+ * 2. Only apps explicitly allowed (isAllowed=true) are added to the VPN
+ * 3. Apps NOT in the VPN tunnel have no internet access (sinkhole effect)
  */
-class BearGuardVpnService : VpnService() {
+class BearGuardVpnService : VpnService(), KoinComponent {
 
     companion object {
+        private const val TAG = "BearGuardVpnService"
         private const val NOTIFICATION_CHANNEL_ID = "bearguard_vpn"
         private const val NOTIFICATION_ID = 1
 
@@ -47,15 +50,36 @@ class BearGuardVpnService : VpnService() {
             private set
     }
 
+    private lateinit var rulesRepository: RulesRepository
+
     private var vpnInterface: ParcelFileDescriptor? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-    // TODO: Inject via Koin
-    private val blockedPackages = mutableSetOf<String>()
+    private var currentBlockedPackages: Set<String> = emptySet()
 
     override fun onCreate() {
         super.onCreate()
+        rulesRepository = get()
         createNotificationChannel()
+        observeRuleChanges()
+    }
+
+    /**
+     * Observe rule changes and restart VPN when blocked apps change.
+     */
+    private fun observeRuleChanges() {
+        serviceScope.launch {
+            rulesRepository.observeRules().collect { rules ->
+                val newBlockedPackages = rules.filter { !it.isAllowed }.map { it.packageName }.toSet()
+
+                // Only restart if VPN is running and blocked packages changed
+                if (isRunning && newBlockedPackages != currentBlockedPackages) {
+                    Log.d(TAG, "Rules changed, restarting VPN...")
+                    Log.d(TAG, "  Old blocked: $currentBlockedPackages")
+                    Log.d(TAG, "  New blocked: $newBlockedPackages")
+                    restartVpn()
+                }
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -88,6 +112,18 @@ class BearGuardVpnService : VpnService() {
     private fun startVpn() {
         if (isRunning) return
 
+        // Load rules to determine which apps to block
+        val rules = runBlocking { rulesRepository.getRules() }
+        val blockedPackages = rules.filter { !it.isAllowed }.map { it.packageName }.toSet()
+
+        // Update current state for change detection
+        currentBlockedPackages = blockedPackages
+
+        Log.d(TAG, "Starting VPN with ${blockedPackages.size} blocked apps")
+        blockedPackages.forEach { pkg ->
+            Log.d(TAG, "  Blocked: $pkg")
+        }
+
         // Build VPN interface
         val builder = Builder()
             .setSession("BearGuard")
@@ -99,42 +135,56 @@ class BearGuardVpnService : VpnService() {
             .setMtu(1500)
             .setBlocking(true)
 
-        // Exclude blocked apps from VPN (they get no internet)
-        // Or include only allowed apps (whitelist mode)
-        // For now, we'll use the "allow apps through VPN" approach
-        // Apps NOT in the VPN tunnel = blocked
-
         try {
-            // Allow this app to bypass VPN (avoid infinite loop)
-            builder.addDisallowedApplication(packageName)
+            // Use addAllowedApplication for BLOCKED apps only
+            // - Apps added via addAllowedApplication -> go through VPN -> packets dropped -> NO internet
+            // - All other apps -> bypass VPN automatically -> normal internet
+            //
+            // If no apps are blocked, we don't add any - VPN still runs but all apps bypass it
+            if (blockedPackages.isNotEmpty()) {
+                for (blockedPackage in blockedPackages) {
+                    try {
+                        builder.addAllowedApplication(blockedPackage)
+                        Log.d(TAG, "Added to VPN (blocked): $blockedPackage")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to add package: $blockedPackage", e)
+                    }
+                }
+            } else {
+                // No blocked apps - exclude ourselves so VPN doesn't affect anything
+                builder.addDisallowedApplication(packageName)
+                Log.d(TAG, "No blocked apps - VPN running in passthrough mode")
+            }
 
             // Establish VPN tunnel
             vpnInterface = builder.establish()
 
             if (vpnInterface != null) {
                 isRunning = true
+                Log.d(TAG, "VPN established successfully")
 
                 // Start packet processing
                 serviceScope.launch {
                     processPackets()
                 }
             } else {
-                // VPN failed to establish, stop the service
+                Log.e(TAG, "VPN failed to establish - vpnInterface is null")
                 stopVpn()
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Error starting VPN", e)
             stopVpn()
         }
     }
 
     private fun stopVpn() {
+        Log.d(TAG, "Stopping VPN")
         isRunning = false
 
         try {
             vpnInterface?.close()
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Error closing VPN interface", e)
         }
         vpnInterface = null
 
@@ -143,11 +193,31 @@ class BearGuardVpnService : VpnService() {
     }
 
     /**
+     * Restart VPN to apply new rules.
+     * Only restarts the VPN tunnel itself, keeps the service running.
+     */
+    private fun restartVpn() {
+        Log.d(TAG, "Restarting VPN to apply rule changes...")
+        isRunning = false
+
+        try {
+            vpnInterface?.close()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error closing VPN interface during restart", e)
+        }
+        vpnInterface = null
+
+        // Small delay to ensure clean shutdown
+        Thread.sleep(100)
+
+        startVpn()
+    }
+
+    /**
      * Main packet processing loop.
      *
-     * Reads packets from the VPN tunnel and decides whether to:
-     * - Forward them (allowed apps)
-     * - Drop them (blocked apps)
+     * For now, we just read and discard packets since the blocking is done
+     * at the VPN builder level (excluded apps can't send packets through the tunnel).
      */
     private suspend fun processPackets() {
         val vpnFd = vpnInterface ?: return
@@ -166,20 +236,16 @@ class BearGuardVpnService : VpnService() {
                 if (length > 0) {
                     buffer.limit(length)
 
-                    // Parse packet to determine source app
-                    // For now, forward all packets (basic implementation)
-                    // TODO: Implement packet filtering based on app rules
-
                     // Log the packet for traffic monitoring
                     logPacket(buffer, length)
 
-                    // Forward packet (in real implementation, we'd check rules here)
-                    // The actual forwarding happens through the VPN tunnel automatically
-                    // when we don't drop the packet
+                    // Packets from allowed apps come through here
+                    // We need to forward them to the actual network
+                    // For now, the VPN tunnel handles this automatically
                 }
             } catch (e: Exception) {
                 if (isRunning) {
-                    e.printStackTrace()
+                    Log.e(TAG, "Error processing packets", e)
                 }
                 break
             }
@@ -189,7 +255,7 @@ class BearGuardVpnService : VpnService() {
             inputStream.close()
             outputStream.close()
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Error closing streams", e)
         }
     }
 
