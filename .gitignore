@@ -1,6 +1,7 @@
 *.iml
 .gradle
 .idea
+.kotlin
 .DS_Store
 build
 captures
@@ -10,3 +11,6 @@ local.properties
 *.jks
 *.keystore
 google-services.json
+
+# Internal documentation (not for public)
+docs/internal/

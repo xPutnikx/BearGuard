@@ -1,4 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">BearGuard</string>
+
+    <!-- App List Screen -->
+    <string name="app_list_title">Apps</string>
+    <string name="app_list_search_hint">Search apps</string>
+    <string name="app_list_show_system_apps">Show system apps</string>
+    <string name="app_list_show_blocked">Show blocked only</string>
+    <string name="app_list_empty">No apps found</string>
+    <string name="app_list_internet_access">Internet access allowed</string>
+    <string name="app_list_blocked">Blocked</string>
+
+    <!-- VPN Control -->
+    <string name="vpn_status_active">Protection Active</string>
+    <string name="vpn_status_inactive">Protection Inactive</string>
+    <string name="vpn_start">Start Protection</string>
+    <string name="vpn_stop">Stop Protection</string>
+    <string name="vpn_permission_required">VPN permission required</string>
+    <string name="vpn_permission_denied">VPN permission was denied</string>
+    <string name="vpn_connection_failed">Connection failed. Check your internet connection.</string>
+
+    <!-- Traffic Screen -->
+    <string name="traffic_empty">No traffic logged yet</string>
+    <string name="traffic_blocked">Blocked</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_apps">Apps</string>
+    <string name="nav_traffic">Traffic</string>
+    <string name="nav_settings">Settings</string>
 </resources>

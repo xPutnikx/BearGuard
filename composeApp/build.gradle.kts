@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.serialization)
+    alias(libs.plugins.mokkery)
 }
 
 kotlin {
@@ -55,6 +56,10 @@ kotlin {
             // Kotlinx libraries
             implementation(libs.kotlinx.serialization)
             implementation(libs.kotlinx.coroutines.core)
+
+            // DataStore
+            implementation(libs.androidx.datastore.preferences.core)
+            implementation(libs.okio)
 
             // Shared modules
             implementation(project(":architecture"))
