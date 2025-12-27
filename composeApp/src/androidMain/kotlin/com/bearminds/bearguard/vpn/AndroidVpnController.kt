@@ -3,14 +3,7 @@ package com.bearminds.bearguard.vpn
 import android.content.Context
 import android.content.Intent
 import android.net.VpnService
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 
 /**
  * Android implementation of [VpnController].
@@ -20,22 +13,13 @@ class AndroidVpnController(
     private val context: Context,
 ) : VpnController {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-
-    private val _isRunning = MutableStateFlow(false)
-    override val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
+    /**
+     * Observe VPN running state directly from the service's StateFlow.
+     * No polling needed - updates are immediate.
+     */
+    override val isRunning: StateFlow<Boolean> = BearGuardVpnService.isRunning
 
     override val requiresPermission: Boolean = true
-
-    init {
-        // Poll VPN service state periodically
-        scope.launch {
-            while (true) {
-                _isRunning.value = BearGuardVpnService.isRunning
-                delay(1000)
-            }
-        }
-    }
 
     /**
      * Check if VPN permission is granted.

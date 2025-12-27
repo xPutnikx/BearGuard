@@ -16,6 +16,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.koin.core.component.KoinComponent
@@ -41,13 +44,14 @@ class BearGuardVpnService : VpnService(), KoinComponent {
         private const val TAG = "BearGuardVpnService"
         private const val NOTIFICATION_CHANNEL_ID = "bearguard_vpn"
         private const val NOTIFICATION_ID = 1
+        private const val RULE_CHANGE_DEBOUNCE_MS = 300L
+        private const val VPN_RESTART_DELAY_MS = 100L
 
         const val ACTION_START = "com.bearminds.bearguard.vpn.START"
         const val ACTION_STOP = "com.bearminds.bearguard.vpn.STOP"
 
-        @Volatile
-        var isRunning = false
-            private set
+        private val _isRunning = kotlinx.coroutines.flow.MutableStateFlow(false)
+        val isRunning: kotlinx.coroutines.flow.StateFlow<Boolean> = _isRunning
     }
 
     private lateinit var rulesRepository: RulesRepository
@@ -55,6 +59,7 @@ class BearGuardVpnService : VpnService(), KoinComponent {
     private var vpnInterface: ParcelFileDescriptor? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var currentBlockedPackages: Set<String> = emptySet()
+    private var restartJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -65,20 +70,28 @@ class BearGuardVpnService : VpnService(), KoinComponent {
 
     /**
      * Observe rule changes and restart VPN when blocked apps change.
+     * Uses debounce to prevent rapid restarts when multiple rules change quickly.
      */
     private fun observeRuleChanges() {
         serviceScope.launch {
-            rulesRepository.observeRules().collect { rules ->
-                val newBlockedPackages = rules.filter { !it.isAllowed }.map { it.packageName }.toSet()
+            rulesRepository.observeRules()
+                .debounce(RULE_CHANGE_DEBOUNCE_MS)
+                .collect { rules ->
+                    // Filter out BearGuard's package from blocked packages
+                    val newBlockedPackages = rules
+                        .filter { !it.isAllowed && it.packageName != packageName }
+                        .map { it.packageName }
+                        .toSet()
 
-                // Only restart if VPN is running and blocked packages changed
-                if (isRunning && newBlockedPackages != currentBlockedPackages) {
-                    Log.d(TAG, "Rules changed, restarting VPN...")
-                    Log.d(TAG, "  Old blocked: $currentBlockedPackages")
-                    Log.d(TAG, "  New blocked: $newBlockedPackages")
-                    restartVpn()
+                    // Only restart if VPN is running and blocked packages changed
+                    if (_isRunning.value && newBlockedPackages != currentBlockedPackages) {
+                        // Cancel any pending restart before starting a new one
+                        restartJob?.cancel()
+                        restartJob = serviceScope.launch {
+                            restartVpn()
+                        }
+                    }
                 }
-            }
         }
     }
 
@@ -110,19 +123,18 @@ class BearGuardVpnService : VpnService(), KoinComponent {
     }
 
     private fun startVpn() {
-        if (isRunning) return
+        if (_isRunning.value) return
 
         // Load rules to determine which apps to block
         val rules = runBlocking { rulesRepository.getRules() }
-        val blockedPackages = rules.filter { !it.isAllowed }.map { it.packageName }.toSet()
+        // Filter out BearGuard's own package to prevent accidental self-blocking
+        val blockedPackages = rules
+            .filter { !it.isAllowed && it.packageName != packageName }
+            .map { it.packageName }
+            .toSet()
 
         // Update current state for change detection
         currentBlockedPackages = blockedPackages
-
-        Log.d(TAG, "Starting VPN with ${blockedPackages.size} blocked apps")
-        blockedPackages.forEach { pkg ->
-            Log.d(TAG, "  Blocked: $pkg")
-        }
 
         // Build VPN interface
         val builder = Builder()
@@ -136,32 +148,29 @@ class BearGuardVpnService : VpnService(), KoinComponent {
             .setBlocking(true)
 
         try {
+            // Always exclude BearGuard itself from VPN to maintain network access
+            try {
+                builder.addDisallowedApplication(packageName)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to exclude self from VPN", e)
+            }
+
             // Use addAllowedApplication for BLOCKED apps only
             // - Apps added via addAllowedApplication -> go through VPN -> packets dropped -> NO internet
             // - All other apps -> bypass VPN automatically -> normal internet
-            //
-            // If no apps are blocked, we don't add any - VPN still runs but all apps bypass it
-            if (blockedPackages.isNotEmpty()) {
-                for (blockedPackage in blockedPackages) {
-                    try {
-                        builder.addAllowedApplication(blockedPackage)
-                        Log.d(TAG, "Added to VPN (blocked): $blockedPackage")
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed to add package: $blockedPackage", e)
-                    }
+            for (blockedPackage in blockedPackages) {
+                try {
+                    builder.addAllowedApplication(blockedPackage)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to add package: $blockedPackage", e)
                 }
-            } else {
-                // No blocked apps - exclude ourselves so VPN doesn't affect anything
-                builder.addDisallowedApplication(packageName)
-                Log.d(TAG, "No blocked apps - VPN running in passthrough mode")
             }
 
             // Establish VPN tunnel
             vpnInterface = builder.establish()
 
             if (vpnInterface != null) {
-                isRunning = true
-                Log.d(TAG, "VPN established successfully")
+                _isRunning.value = true
 
                 // Start packet processing
                 serviceScope.launch {
@@ -178,8 +187,8 @@ class BearGuardVpnService : VpnService(), KoinComponent {
     }
 
     private fun stopVpn() {
-        Log.d(TAG, "Stopping VPN")
-        isRunning = false
+        _isRunning.value = false
+        restartJob?.cancel()
 
         try {
             vpnInterface?.close()
@@ -196,9 +205,8 @@ class BearGuardVpnService : VpnService(), KoinComponent {
      * Restart VPN to apply new rules.
      * Only restarts the VPN tunnel itself, keeps the service running.
      */
-    private fun restartVpn() {
-        Log.d(TAG, "Restarting VPN to apply rule changes...")
-        isRunning = false
+    private suspend fun restartVpn() {
+        _isRunning.value = false
 
         try {
             vpnInterface?.close()
@@ -208,7 +216,7 @@ class BearGuardVpnService : VpnService(), KoinComponent {
         vpnInterface = null
 
         // Small delay to ensure clean shutdown
-        Thread.sleep(100)
+        delay(VPN_RESTART_DELAY_MS)
 
         startVpn()
     }
@@ -227,7 +235,7 @@ class BearGuardVpnService : VpnService(), KoinComponent {
 
         val buffer = ByteBuffer.allocate(32767)
 
-        while (isRunning && vpnInterface != null) {
+        while (_isRunning.value && vpnInterface != null) {
             try {
                 // Read packet from VPN tunnel
                 buffer.clear()
@@ -244,7 +252,7 @@ class BearGuardVpnService : VpnService(), KoinComponent {
                     // For now, the VPN tunnel handles this automatically
                 }
             } catch (e: Exception) {
-                if (isRunning) {
+                if (_isRunning.value) {
                     Log.e(TAG, "Error processing packets", e)
                 }
                 break

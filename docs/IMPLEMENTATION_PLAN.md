@@ -4,7 +4,7 @@ A Kotlin Multiplatform firewall app for Android and iOS.
 
 ## Current Status
 
-### Completed Features ✅
+### Completed Features
 
 #### Core Infrastructure
 - [x] KMP project structure (Android, iOS, JVM targets)
@@ -20,6 +20,8 @@ A Kotlin Multiplatform firewall app for Android and iOS.
 - [x] Loading state with 3-second timeout
 - [x] Error snackbar when connection fails
 - [x] `QUERY_ALL_PACKAGES` permission for Android 11+
+- [x] App-level blocking via `addAllowedApplication()` sinkhole approach
+- [x] Rule change observation with VPN restart
 
 #### App Rules
 - [x] App list with per-app internet toggle
@@ -46,31 +48,90 @@ A Kotlin Multiplatform firewall app for Android and iOS.
 
 ---
 
-## Phase 1: Core Firewall Functionality 🔧
+## Phase 0: Critical Bug Fixes (URGENT)
 
-### 1.1 Actual Packet Blocking (HIGH PRIORITY)
-Currently the VPN reads packets but doesn't actually block them based on rules.
+These issues were identified during architecture review and should be fixed before any new features.
 
-**Approach:**
-- Use `Builder.addDisallowedApplication(packageName)` to exclude blocked apps from VPN
-- Apps excluded from VPN = no internet (sinkhole)
-- Alternative: Parse packets, identify app by UID, drop packets for blocked apps
+### 0.1 Self-Exclusion Bug (HIGH PRIORITY)
+**Issue:** BearGuard only excludes itself from VPN when there are no blocked apps.
+When blocked apps exist, BearGuard is NOT excluded, meaning it could lose network access.
+
+**Fix:**
+```kotlin
+// Always exclude BearGuard from VPN, regardless of blocked apps
+try {
+    builder.addDisallowedApplication(packageName)
+} catch (e: Exception) {
+    Log.w(TAG, "Failed to exclude self from VPN", e)
+}
+```
 
 **Tasks:**
-- [ ] Inject RulesRepository into VpnService
-- [ ] On VPN start, get list of blocked packages
-- [ ] Use `addDisallowedApplication()` for each allowed app (whitelist mode)
-- [ ] Or use `addAllowedApplication()` for allowed apps only
-- [ ] Listen for rule changes and restart VPN to apply
+- [x] Always call `addDisallowedApplication(packageName)` for BearGuard itself
+- [x] Add validation to prevent rules from blocking BearGuard's package name
+
+### 0.2 Thread Blocking in Coroutine (HIGH PRIORITY)
+**Issue:** `restartVpn()` uses `Thread.sleep(100)` which blocks the IO dispatcher thread.
+
+**Fix:** Replace with `delay(100)` and make the function suspend.
+
+**Tasks:**
+- [x] Change `restartVpn()` to a suspend function
+- [x] Replace `Thread.sleep(100)` with `delay(100)`
+
+### 0.3 Rule Change Race Condition (MEDIUM PRIORITY)
+**Issue:** Rapid rule changes can trigger multiple concurrent VPN restarts.
+
+**Fix:** Add debounce to rule observation:
+```kotlin
+rulesRepository.observeRules()
+    .debounce(300) // Wait for rapid changes to settle
+    .collect { ... }
+```
+
+**Tasks:**
+- [x] Add 300ms debounce to rule change observation
+- [x] Cancel any pending restart before starting a new one
+
+### 0.4 VPN State Polling Inefficiency (MEDIUM PRIORITY)
+**Issue:** `AndroidVpnController` polls `BearGuardVpnService.isRunning` every second in a forever loop.
+
+**Fix:** Replace the static Boolean with a StateFlow and observe it directly.
+
+**Tasks:**
+- [x] Change `BearGuardVpnService.isRunning` from `Boolean` to `MutableStateFlow<Boolean>`
+- [x] Have `AndroidVpnController` observe the StateFlow instead of polling
+- [x] Add proper lifecycle cleanup for the controller (no longer needed - no coroutine scope)
+
+---
+
+## Phase 1: Core Firewall Functionality
+
+### 1.1 VPN Blocking Improvements
+The basic blocking works but needs hardening.
+
+**Tasks:**
+- [x] ~~Inject RulesRepository into VpnService~~ (completed)
+- [x] ~~On VPN start, get list of blocked packages~~ (completed)
+- [x] ~~Use `addAllowedApplication()` for blocked apps (sinkhole)~~ (completed)
+- [x] ~~Listen for rule changes and restart VPN to apply~~ (completed)
+- [ ] Add error channel to VpnController for UI error reporting
+- [ ] Detect VPN permission revocation and notify user
+- [ ] Handle "always-on VPN" system setting gracefully
 
 ### 1.2 WiFi vs Mobile Data Rules
 Allow different rules per network type.
 
+**Note:** The `Rule` model already has `allowWifi` and `allowMobileData` fields but they are not used.
+
 **Tasks:**
-- [ ] Extend Rule model: `isAllowedWifi`, `isAllowedMobile`
-- [ ] Detect current network type (ConnectivityManager)
-- [ ] Apply appropriate rules based on network
+- [x] ~~Extend Rule model~~ (already has `allowWifi`, `allowMobileData`)
+- [ ] Create `NetworkTypeProvider` interface (expect/actual for KMP)
+- [ ] Implement Android `ConnectivityManager` wrapper
+- [ ] Register for network change broadcasts
+- [ ] Apply appropriate rules based on network type
 - [ ] Update UI to show WiFi/Mobile toggles per app
+- [ ] Restart VPN when network type changes
 
 ### 1.3 Screen On/Off Rules
 Block when screen is off for battery savings.
@@ -79,6 +140,14 @@ Block when screen is off for battery savings.
 - [ ] Add `allowWhenScreenOn` setting per app
 - [ ] Register BroadcastReceiver for ACTION_SCREEN_ON/OFF
 - [ ] Update VPN rules when screen state changes
+
+### 1.4 Uninstalled App Cleanup
+Clean up rules when apps are uninstalled.
+
+**Tasks:**
+- [ ] Register BroadcastReceiver for PACKAGE_REMOVED
+- [ ] Remove rule for uninstalled package
+- [ ] If VPN is running, restart to apply changes
 
 ---
 
@@ -221,10 +290,22 @@ Currently iOS has stub implementations.
 
 ## Technical Debt
 
-- [ ] Remove debug logs before release
+### High Priority
+- [ ] Remove debug logs before release (see VpnService lines 77-78, 122-125)
 - [ ] Handle VPN service resource leaks ("A resource failed to call close")
+- [ ] Wrap debug logs in `BuildConfig.DEBUG` checks
+
+### Medium Priority
 - [ ] Add ProGuard/R8 rules
 - [ ] Crashlytics/Analytics integration
+- [ ] Consider removing packet processing loop if only app-level blocking is needed
+- [ ] Use `ByteBuffer.allocateDirect()` for packet buffer if keeping packet processing
+
+### Code Quality
+- [ ] Extract `BlockedPackagesProvider` interface from RulesRepository for VPN service
+- [ ] Add error reporting channel from VpnService to UI
+- [ ] Add rules validation on DataStore load (handle corruption)
+- [ ] Consider work profile / multi-user device support
 
 ---
 
@@ -243,14 +324,66 @@ These features are complex or not needed for initial release:
 
 ## Priority Order
 
-1. **Phase 1.1** - Actual packet blocking (core functionality)
+1. **Phase 0** - Critical bug fixes (MUST do before release)
 2. **Phase 5.1** - Settings screen (user configuration)
 3. **Phase 2.1** - Real traffic logging
 4. **Phase 1.2** - WiFi vs Mobile rules
 5. **Phase 4.2** - New app detection
-6. **Phase 3.2** - Lockdown mode
-7. **Phase 5.3** - Auto-start on boot
-8. Remaining phases as needed
+6. **Phase 1.4** - Uninstalled app cleanup
+7. **Phase 3.2** - Lockdown mode
+8. **Phase 5.3** - Auto-start on boot
+9. Remaining phases as needed
+
+---
+
+## Edge Cases & Known Limitations
+
+### Handled
+- App updates: Package name stays the same, rules still apply
+- Disabled apps: Filtered out of app list
+- Apps without internet permission: Shown but marked (no effect if blocked)
+
+### Not Yet Handled
+- **Work profiles**: Apps in work profile have different UIDs - may need separate handling
+- **Multi-user devices**: Different users have separate app instances
+- **Instant apps**: May have different package behaviors
+- **Split APKs**: Verify package name detection works correctly
+- **VPN permission revocation**: No notification if user revokes while running
+- **Battery optimization**: System may kill service - need to handle graceful restart
+
+### By Design
+- **VPN restart on rule change**: ~100-300ms interruption is unavoidable with builder-level blocking
+- **No domain blocking**: Would require full packet processing (complex, Play Store prohibited)
+- **Single VPN profile**: Android only allows one VPN at a time
+
+---
+
+## Architecture Decision Records
+
+### ADR-001: Sinkhole Blocking Approach
+**Decision:** Use `addAllowedApplication()` to route blocked apps through VPN tunnel and drop packets.
+
+**Rationale:**
+- Simple implementation (~300 LOC vs ~5000 LOC for packet filtering)
+- No need for userspace TCP/UDP stack
+- Google Play compliant (no domain/ad blocking)
+- Reliable - blocking happens at OS level
+
+**Trade-offs:**
+- Cannot do per-domain blocking
+- VPN restart required for rule changes
+
+### ADR-002: DataStore for Rules Storage
+**Decision:** Use DataStore with JSON serialization for rules persistence.
+
+**Rationale:**
+- Simple and sufficient for app-level rules
+- Supports Flow observation for reactive updates
+- No database setup required
+
+**Trade-offs:**
+- Entire rules list loaded/saved as single unit
+- May need migration to SQLDelight if rules grow complex
 
 ---
 
@@ -258,3 +391,4 @@ These features are complex or not needed for initial release:
 
 - [Android VpnService](https://developer.android.com/reference/android/net/VpnService)
 - [iOS Network Extension](https://developer.apple.com/documentation/networkextension)
+- [NetGuard Source](https://github.com/M66B/NetGuard) - Reference implementation
