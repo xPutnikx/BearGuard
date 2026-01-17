@@ -42,7 +42,7 @@ A Kotlin Multiplatform firewall app for Android and iOS.
 #### Testing
 - [x] Manual QA test plan (docs/TEST_PLAN.md)
 - [x] HomeViewModelTest (11 tests)
-- [x] AppListViewModelTest (14 tests)
+- [x] AppListViewModelTest (16 tests)
 - [x] TrafficViewModelTest (12 tests)
 - [x] RulesRepositoryImplTest (9 tests)
 - [x] SettingsViewModelTest (15 tests)
@@ -173,10 +173,10 @@ Parse actual packets and log connections.
 - [x] Show real-time traffic in Traffic screen
 
 ### 2.2 Traffic Statistics
-- [ ] Track bytes sent/received per app
-- [ ] Track connection count per app
-- [ ] Show usage in app list (e.g., "12.5 MB today")
-- [ ] Daily/weekly/monthly stats
+- [x] Track bytes sent/received per app
+- [x] Track connection count per app
+- [x] Show usage in app list (e.g., "Traffic: 12.5 MB")
+- [ ] Daily/weekly/monthly stats (requires database persistence)
 
 ### 2.3 Connection Details
 - [ ] Tap on connection to see details
