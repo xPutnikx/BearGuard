@@ -7,6 +7,8 @@ import com.bearminds.bearguard.rules.model.Rule
 import com.bearminds.bearguard.rules.ui.AppListContract
 import com.bearminds.bearguard.rules.ui.AppListViewModel
 import com.bearminds.bearguard.settings.data.SettingsRepository
+import com.bearminds.bearguard.traffic.data.TrafficRepository
+import com.bearminds.bearguard.traffic.model.TrafficStats
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -24,6 +26,8 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -34,6 +38,7 @@ class AppListViewModelTest {
     private lateinit var appListProvider: AppListProvider
     private lateinit var rulesRepository: RulesRepository
     private lateinit var settingsRepository: SettingsRepository
+    private lateinit var trafficRepository: TrafficRepository
 
     private val testApps = listOf(
         AppInfo(packageName = "com.example.app1", name = "App One", isSystemApp = false, uid = 1001),
@@ -45,12 +50,23 @@ class AppListViewModelTest {
         Rule(packageName = "com.example.app2", isAllowed = false),
     )
 
+    private val testTrafficStats = mapOf(
+        "com.example.app1" to TrafficStats(
+            packageName = "com.example.app1",
+            bytesIn = 1024 * 1024,
+            bytesOut = 512 * 1024,
+            connectionCount = 10,
+            lastConnectionTime = System.currentTimeMillis(),
+        ),
+    )
+
     @BeforeTest
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         appListProvider = mock()
         rulesRepository = mock()
         settingsRepository = mock()
+        trafficRepository = mock()
 
         everySuspend { appListProvider.getInstalledApps(false) } returns testApps.filter { !it.isSystemApp }
         everySuspend { appListProvider.getInstalledApps(true) } returns testApps
@@ -58,6 +74,7 @@ class AppListViewModelTest {
         everySuspend { rulesRepository.saveRule(any()) } returns Unit
         everySuspend { rulesRepository.getRule(any()) } returns null
         everySuspend { settingsRepository.getShowSystemAppsByDefault() } returns false
+        everySuspend { trafficRepository.getStatsPerApp() } returns testTrafficStats
     }
 
     @AfterTest
@@ -69,6 +86,7 @@ class AppListViewModelTest {
         appListProvider = appListProvider,
         rulesRepository = rulesRepository,
         settingsRepository = settingsRepository,
+        trafficRepository = trafficRepository,
     )
 
     // ===================
@@ -445,5 +463,35 @@ class AppListViewModelTest {
                 )
             )
         }
+    }
+
+    // ===================
+    // Traffic Stats Tests
+    // ===================
+
+    @Test
+    fun `when LoadApps then includes traffic stats for apps with data`() = runTest {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val app1 = viewModel.viewState.value.apps.find { it.app.packageName == "com.example.app1" }
+        val app2 = viewModel.viewState.value.apps.find { it.app.packageName == "com.example.app2" }
+
+        assertNotNull(app1?.trafficStats)
+        assertEquals(1024 * 1024L, app1?.trafficStats?.bytesIn)
+        assertEquals(512 * 1024L, app1?.trafficStats?.bytesOut)
+        assertEquals(10, app1?.trafficStats?.connectionCount)
+        assertNull(app2?.trafficStats)
+    }
+
+    @Test
+    fun `when no traffic stats then apps have null trafficStats`() = runTest {
+        everySuspend { trafficRepository.getStatsPerApp() } returns emptyMap()
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.viewState.value
+        assertTrue(state.apps.all { it.trafficStats == null })
     }
 }

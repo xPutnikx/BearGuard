@@ -38,6 +38,7 @@ import bearguard.composeapp.generated.resources.nav_traffic
 import bearguard.composeapp.generated.resources.traffic_blocked
 import bearguard.composeapp.generated.resources.traffic_empty
 import com.bearminds.bearguard.traffic.model.Connection
+import com.bearminds.bearguard.util.formatBytes
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -230,11 +231,3 @@ private fun ConnectionItem(
     }
 }
 
-private fun formatBytes(bytes: Long): String {
-    return when {
-        bytes < 1024 -> "$bytes B"
-        bytes < 1024 * 1024 -> "${bytes / 1024} KB"
-        bytes < 1024 * 1024 * 1024 -> "${bytes / (1024 * 1024)} MB"
-        else -> "${bytes / (1024 * 1024 * 1024)} GB"
-    }
-}

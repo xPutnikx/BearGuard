@@ -3,6 +3,7 @@ package com.bearminds.bearguard.rules.ui
 import com.bearminds.architecture.BaseViewModel.ViewEvent
 import com.bearminds.architecture.BaseViewModel.ViewState
 import com.bearminds.bearguard.rules.model.AppInfo
+import com.bearminds.bearguard.traffic.model.TrafficStats
 
 /**
  * MVI Contract for the App List screen.
@@ -30,7 +31,7 @@ object AppListContract {
 }
 
 /**
- * Combines app info with its current rule state.
+ * Combines app info with its current rule state and traffic statistics.
  */
 data class AppWithRule(
     val app: AppInfo,
@@ -38,4 +39,5 @@ data class AppWithRule(
     val allowWifi: Boolean = true,
     val allowMobile: Boolean = true,
     val allowWhenScreenOff: Boolean = true,
+    val trafficStats: TrafficStats? = null,
 )

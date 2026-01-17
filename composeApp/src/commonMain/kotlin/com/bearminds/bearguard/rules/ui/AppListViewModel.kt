@@ -5,6 +5,7 @@ import com.bearminds.bearguard.rules.data.AppListProvider
 import com.bearminds.bearguard.rules.data.RulesRepository
 import com.bearminds.bearguard.rules.model.Rule
 import com.bearminds.bearguard.settings.data.SettingsRepository
+import com.bearminds.bearguard.traffic.data.TrafficRepository
 import kotlinx.coroutines.launch
 import androidx.lifecycle.viewModelScope
 
@@ -12,6 +13,7 @@ class AppListViewModel(
     private val appListProvider: AppListProvider,
     private val rulesRepository: RulesRepository,
     private val settingsRepository: SettingsRepository,
+    private val trafficRepository: TrafficRepository,
 ) : BaseViewModel<AppListContract.Event, AppListContract.State>() {
 
     override val initialState = AppListContract.State()
@@ -48,6 +50,7 @@ class AppListViewModel(
             val apps = appListProvider.getInstalledApps(includeSystemApps = viewState.value.showSystemApps)
             val rules = rulesRepository.getRules()
             val rulesMap = rules.associateBy { it.packageName }
+            val trafficStats = trafficRepository.getStatsPerApp()
 
             val appsWithRules = apps.map { app ->
                 val rule = rulesMap[app.packageName]
@@ -57,6 +60,7 @@ class AppListViewModel(
                     allowWifi = rule?.allowWifi ?: true,
                     allowMobile = rule?.allowMobileData ?: true,
                     allowWhenScreenOff = rule?.allowWhenScreenOff ?: true,
+                    trafficStats = trafficStats[app.packageName],
                 )
             }
 

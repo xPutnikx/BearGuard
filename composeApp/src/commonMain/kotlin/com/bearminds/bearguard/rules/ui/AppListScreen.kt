@@ -41,12 +41,15 @@ import bearguard.composeapp.generated.resources.app_list_blocked
 import bearguard.composeapp.generated.resources.app_list_empty
 import bearguard.composeapp.generated.resources.app_list_internet_access
 import bearguard.composeapp.generated.resources.app_list_mobile
+import bearguard.composeapp.generated.resources.app_list_no_traffic
 import bearguard.composeapp.generated.resources.app_list_screen_off
 import bearguard.composeapp.generated.resources.app_list_search_hint
 import bearguard.composeapp.generated.resources.app_list_show_blocked
 import bearguard.composeapp.generated.resources.app_list_show_system_apps
 import bearguard.composeapp.generated.resources.app_list_title
+import bearguard.composeapp.generated.resources.app_list_traffic
 import bearguard.composeapp.generated.resources.app_list_wifi
+import com.bearminds.bearguard.util.formatBytes
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
@@ -253,6 +256,15 @@ private fun AppListItem(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    // Traffic stats
+                    val trafficText = appWithRule.trafficStats?.let { stats ->
+                        stringResource(Res.string.app_list_traffic, formatBytes(stats.totalBytes))
+                    } ?: stringResource(Res.string.app_list_no_traffic)
+                    Text(
+                        text = trafficText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
 
                 // Main toggle switch
@@ -311,6 +323,13 @@ private fun AppListItemPreview() {
             allowWifi = true,
             allowMobile = false,
             allowWhenScreenOff = true,
+            trafficStats = com.bearminds.bearguard.traffic.model.TrafficStats(
+                packageName = "com.example.app",
+                bytesIn = 1024 * 1024 * 15,
+                bytesOut = 1024 * 512,
+                connectionCount = 42,
+                lastConnectionTime = System.currentTimeMillis(),
+            ),
         ),
         onToggle = {},
         onWifiToggle = {},

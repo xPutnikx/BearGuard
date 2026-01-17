@@ -13,6 +13,8 @@
     <string name="app_list_wifi">WiFi</string>
     <string name="app_list_mobile">Mobile</string>
     <string name="app_list_screen_off">Screen off</string>
+    <string name="app_list_traffic">Traffic: %1$s</string>
+    <string name="app_list_no_traffic">No traffic</string>
 
     <!-- VPN Control -->
     <string name="vpn_status_active">Protection Active</string>

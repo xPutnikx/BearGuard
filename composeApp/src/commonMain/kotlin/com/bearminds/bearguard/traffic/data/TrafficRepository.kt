@@ -1,6 +1,7 @@
 package com.bearminds.bearguard.traffic.data
 
 import com.bearminds.bearguard.traffic.model.Connection
+import com.bearminds.bearguard.traffic.model.TrafficStats
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -32,4 +33,15 @@ interface TrafficRepository {
      * Get total bytes transferred.
      */
     suspend fun getTotalBytes(): Pair<Long, Long> // (bytesIn, bytesOut)
+
+    /**
+     * Get aggregated traffic stats for all apps.
+     * Returns a map of package name to stats.
+     */
+    suspend fun getStatsPerApp(): Map<String, TrafficStats>
+
+    /**
+     * Observe aggregated traffic stats for all apps.
+     */
+    fun observeStatsPerApp(): Flow<Map<String, TrafficStats>>
 }
